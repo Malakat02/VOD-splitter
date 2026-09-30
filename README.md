@@ -143,3 +143,12 @@ Les tests automatiques ne font pas d’appels API payants. Le test manuel des ti
 ```
 
 Ce test crée ses résultats séparément sous `tests/output`. Les VOD, clips, modèles, dépendances téléchargées, fichiers de session, clés et caches sont exclus de Git.
+
+
+## Tags YouTube communs au jeu
+
+Un seul fichier **tags.txt** est créé à la racine du dossier du projet, à côté de **projet.json**. Sa liste est commune à tous les épisodes : nom du jeu, variantes avec gameplay/français et contenu gaming francophone. Elle ne dépend pas des paroles ni des événements d’un clip. Les genres ne sont ajoutés que lorsqu’ils figurent dans le contexte du jeu recherché. Sans nom de jeu, seuls les tags généraux de contenu francophone sont utilisés.
+
+Le fichier contient uniquement les tags séparés par des virgules, prêts à copier dans YouTube Studio. Le comptage reste à **500 caractères maximum**, séparateurs inclus, et inclut les deux guillemets implicitement comptés par YouTube pour chaque tag contenant un espace. Les doublons sont retirés et les tags sont conservés entiers. Le fichier est recréé si tu refais la publication avec un autre jeu.
+
+Règle officielle : [YouTube — snippet.tags](https://developers.google.com/youtube/v3/docs/videos#snippet.tags).

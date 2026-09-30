@@ -1,4 +1,5 @@
 """Cut once, expose completed clips immediately, and edit publications without re-cutting."""
+from publication_tags import write_tags
 import ai_provider
 import json
 import math
@@ -51,7 +52,8 @@ def safe_video_name(title, parent, extension, number):
 def save_project(directory, manifest, update):
     write_json(directory / "projet.json", manifest)
     update({"clips": manifest["clips"], "project": str(directory / "projet.json"),
-            "output": str(directory), "game_context": manifest.get("game_context", {})})
+            "output": str(directory), "game_context": manifest.get("game_context", {}),
+            "publication_tags": manifest.get("publication_tags", {})})
 
 
 def load_project(path):
@@ -102,6 +104,7 @@ def enrich(directory, manifest, config, runner, update, reuse=False):
         except Exception as e:
             context["warning"] = "Contexte Internet indisponible : " + str(e)
             runner.log(context["warning"])
+    manifest["publication_tags"] = write_tags(directory, game, context.get("overview", ""))
     manifest["game_context"] = context
     write_json(directory / "contexte_jeu.json", context)
     save_project(directory, manifest, update)

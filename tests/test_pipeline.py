@@ -34,6 +34,8 @@ class PipelineTests(unittest.TestCase):
         result = process({"source": str(source), "start": "00:05", "minutes": 1,
                           "output": str(ROOT / "tests" / "output"), "ai": False}, runner, lambda _: None)
         self.assertEqual(len(result["clips"]), 3)
+        self.assertEqual((Path(result['clips'][0]['file']).parent/'tags.txt').read_text(encoding='utf-8'), result['publication_tags']['tags_text'])
+        self.assertLessEqual(result['publication_tags']['tags_characters'], 500)
         self.assertAlmostEqual(result["actual_start"], 6, delta=.1)
         durations = [c["duration"] for c in result["clips"]]
         self.assertTrue(all(58 <= d <= 62 for d in durations[:2]), durations)

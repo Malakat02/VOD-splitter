@@ -154,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("Attends la fin du traitement avant d’ouvrir un projet.")
                     directory, manifest = load_project(data["project"])
                     update({"output": str(directory), "project": str(directory / "projet.json"),
-                            "clips": manifest["clips"], "game_context": manifest.get("game_context", {}),
+                            "clips": manifest["clips"], "publication_tags": manifest.get("publication_tags", {}), "game_context": manifest.get("game_context", {}),
                             "stage": "Projet chargé — vidéos déjà découpées", "progress": 100, "error": ""})
                 return self.send({"project": str(directory / "projet.json"), "game": manifest.get("game", ""),
                                   "first_episode": manifest.get("first_episode", 1), "clips": len(manifest["clips"])})
