@@ -1,0 +1,5 @@
+Pillow>=11,<13
+faster-whisper>=1.1,<2
+# PyAV 19 removed metadata_errors, still used by faster-whisper 1.2.
+av>=11,<17
+ddgs>=9,<10
