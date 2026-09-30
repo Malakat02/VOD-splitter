@@ -1,0 +1,27 @@
+.venv/
+models/
+tools/
+__pycache__/
+.session.json
+*.log
+tests/fixtures/
+tests/output/
+cache/
+.cache/
+Clips VOD/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.mp4
+*.mkv
+*.mov
+*.ts
+*.m2ts
+*.webm
+*.avi
+*.flv
+apercu.png
+choix-modele-openai.png
+selecteur-corrige.png
