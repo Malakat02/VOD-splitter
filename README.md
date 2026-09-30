@@ -16,7 +16,7 @@ Double-clique sur **Lancer VOD Atelier.cmd**. L’interface s’ouvre dans le na
 2. Indique le début du contenu : `05:00` retire cinq minutes. La durée des épisodes commence après cette intro.
 3. Garde **20 minutes**, ou choisis une autre durée.
 4. Saisis le **nom exact du jeu** et le **numéro du premier clip**. Le jeu saisi fixe le périmètre de recherche et d’analyse : il ne doit pas être remplacé par un jeu supposé à partir de Whisper.
-5. Garde **Rechercher le contexte du jeu sur Internet** pour utiliser des sources sur le jeu. Les liens consultés sont affichés. Seul le nom du jeu sert à la recherche ; aucune vidéo, image ou transcription n’est envoyée au moteur de recherche. En mode OpenAI, le texte et les huit images sont envoyés à OpenAI pour l’analyse.
+5. Garde **Rechercher le contexte du jeu sur Internet** pour utiliser des sources sur le jeu. Les liens consultés sont affichés. Seul le nom du jeu sert à la recherche ; aucune vidéo, image ou transcription n’est envoyée au moteur de recherche. En mode OpenAI, les résumés de cinq minutes et les huit images sont envoyés à OpenAI pour l’analyse ; la transcription détaillée reste locale.
 6. Choisis **IA locale** ou **OpenAI**, puis coche **Analyser avec l’IA** pour obtenir les titres et la miniature choisie par le modèle.
 7. Clique sur **Créer mes épisodes**.
 
@@ -26,7 +26,7 @@ Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de 
 
 - `clip_001.mp4`, etc. : pistes vidéo et audio copiées sans réencodage. Les vidéos apparaissent dès la fin du découpage, avant l’analyse. Avec un nom de jeu, elles sont ensuite renommées d’après le premier titre validé. Certains codecs utilisent MKV pour conserver leur format.
 - Dossier `clip_001` : miniature JPEG 1280 × 720, huit images candidates et planche de contact.
-- Avec IA : transcription horodatée, résumé, jusqu’à trois propositions de titres validées, texte de miniature et image sélectionnée.
+- Avec IA : résumés par période de cinq minutes (`resume_5min.txt` et `.json`), résumé global, jusqu’à trois propositions de titres validées, texte de miniature et image sélectionnée. `transcription.txt` contient désormais ces notes compactes ; `transcription.json` reste un cache technique local pour éviter de réécouter la vidéo.
 - `projet.json` : paramètres, début effectivement retenu, durées réelles, résultats et éventuels avertissements.
 
 Clique sur un titre dans l’interface pour le copier. Ouvre **Modifier la miniature** pour changer l’image ou le texte. Les miniatures sont des compositions à partir de vraies images du clip ; l’application ne génère pas de scène fictive.
@@ -45,7 +45,7 @@ Clique sur **Ouvrir un projet existant**, sélectionne `projet.json`, saisis le 
 
 Les transcriptions et les huit images sont réutilisées par défaut. Les analyses visuelles sont aussi réutilisées si le clip, ses images et le jeu sont identiques. Décoche **Réutiliser les transcriptions existantes** pour refaire Whisper avec le vocabulaire du jeu lorsqu’une ancienne transcription est trop mauvaise.
 
-Le découpage n’effectue plus la seconde réécriture MP4 « faststart » : aucune qualité vidéo/audio n’est perdue, mais un fichier envoyé tel quel sur un simple serveur web peut nécessiter un téléchargement complet avant lecture. YouTube traite ses propres fichiers après import. Le modèle reste chargé entre les clips pendant 30 minutes. Pour les transcriptions qui tiennent dans sa fenêtre de contexte, le rédacteur reçoit le texte complet, ce qui évite les résumés intermédiaires et leur perte de détails. Les transcriptions plus longues sont examinées par parties. Même modèle Whisper, même effort de décodage, même modèle visuel et mêmes huit images en 1280 × 720.
+Le découpage n’effectue plus la seconde réécriture MP4 « faststart » : aucune qualité vidéo/audio n’est perdue, mais un fichier envoyé tel quel sur un simple serveur web peut nécessiter un téléchargement complet avant lecture. YouTube traite ses propres fichiers après import. Le modèle reste chargé entre les clips pendant 30 minutes. Le rédacteur reçoit désormais des résumés par périodes de cinq minutes préparés localement, avec les actions, enjeux et incertitudes utiles aux titres. Une condensation peut omettre un détail bref : relis les notes affichées pour évaluer les titres. Même modèle Whisper, même effort de décodage, même modèle visuel et mêmes huit images en 1280 × 720.
 
 ## Mode IA locale
 
@@ -81,7 +81,7 @@ Sources techniques : [FFmpeg segment muxer](https://ffmpeg.org/ffmpeg-formats.ht
 
 ## Mode OpenAI avec une clé API
 
-Dans **Quelle IA utiliser ?**, choisis **OpenAI · avec ma clé API**. Le modèle OpenAI choisi analyse les huit images, rédige les titres et contrôle leur fidélité au jeu et aux faits. La recherche du jeu conserve son périmètre strict. Whisper reste local : seuls la transcription, les images et le contexte du jeu partent vers OpenAI, pas le fichier vidéo ni l’audio. Le découpage reste sans réencodage. Les miniatures restent des compositions locales à partir des images du clip.
+Dans **Quelle IA utiliser ?**, choisis **OpenAI · avec ma clé API**. Le modèle OpenAI choisi analyse les huit images, rédige les titres et contrôle leur fidélité au jeu et aux faits. La recherche du jeu conserve son périmètre strict. Whisper et Qwen restent locaux : seuls les résumés de cinq minutes, les images et le contexte du jeu partent vers OpenAI, pas la transcription détaillée, le fichier vidéo ni l’audio. Le découpage reste sans réencodage. Les miniatures restent des compositions locales à partir des images du clip.
 
 1. Ouvre [API keys](https://platform.openai.com/api-keys), connecte-toi et sélectionne ton projet.
 2. Clique sur **Create new secret key**, nomme la clé **VOD Atelier**, puis copie la clé secrète complète dans l’application. Ce n’est ni ton mot de passe ChatGPT, ni une clé administrateur. Si tu limites ses permissions, autorise Responses en écriture et Models en lecture.
@@ -112,11 +112,11 @@ Tarifs standard en dollars par million de tokens, vérifiés le 30 septembre 202
 | [gpt-5.4-mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) | 0,75 $ | 4,50 $ |
 | [gpt-5.4](https://developers.openai.com/api/docs/models/gpt-5.4) | 2,50 $ | 15,00 $ |
 
-Ce ne sont pas des prix par clip : les huit images, la longueur de la transcription et les différents passages de rédaction et de contrôle contribuent au coût. Le catalogue est indicatif ; consulte les liens officiels pour les tarifs à jour. Les modèles plus petits peuvent donner des titres moins pertinents : compare les résultats sur un clip.
+Ce ne sont pas des prix par clip : les huit images, la longueur des résumés et les différents passages de rédaction et de contrôle contribuent au coût. Le catalogue est indicatif ; consulte les liens officiels pour les tarifs à jour. Les modèles plus petits peuvent donner des titres moins pertinents : compare les résultats sur un clip.
 
 Le modèle s’applique à toutes les étapes OpenAI du prochain traitement, y compris la préparation du contexte du jeu si elle n’est pas déjà en cache. **Vérifier la clé** vérifie l’accès à ce modèle précis sans génération. Un modèle personnalisé doit accepter Responses, les images et les sorties JSON structurées ; une erreur sera affichée si ce n’est pas le cas. Il n’y a pas de remplacement automatique par un autre modèle. Les modèles GPT-5.4 proposés utilisent l’effort de raisonnement `none` pour éviter les tokens supplémentaires de raisonnement.
 
-Changer de modèle distingue les caches d’analyse des images et de la transcription découpée en moments. Le texte de Whisper et les images extraites restent réutilisables sans perte. Le contexte factuel du jeu déjà en cache peut être réutilisé.
+Changer de modèle OpenAI distingue les caches d’analyse des images. Les résumés locaux restent réutilisables. Le texte de Whisper et les images extraites restent réutilisables sans perte. Le contexte factuel du jeu déjà en cache peut être réutilisé.
 
 
 ## Réponses incomplètes et GPT-6 Luna
@@ -152,3 +152,14 @@ Un seul fichier **tags.txt** est créé à la racine du dossier du projet, à c�
 Le fichier contient uniquement les tags séparés par des virgules, prêts à copier dans YouTube Studio. Le comptage reste à **500 caractères maximum**, séparateurs inclus, et inclut les deux guillemets implicitement comptés par YouTube pour chaque tag contenant un espace. Les doublons sont retirés et les tags sont conservés entiers. Le fichier est recréé si tu refais la publication avec un autre jeu.
 
 Règle officielle : [YouTube — snippet.tags](https://developers.google.com/youtube/v3/docs/videos#snippet.tags).
+
+
+## Résumés de cinq minutes
+
+Whisper conserve la même reconnaissance de tout le clip sur le PC. Qwen prépare ensuite un résumé de 1 à 2 phrases par période de cinq minutes, avec au maximum deux actions, enjeux ou difficultés précis. Un clip de 20 minutes fournit quatre périodes ; le dernier intervalle est plus court si nécessaire. Les hypothèses et les passages incertains ne doivent pas devenir des faits accomplis.
+
+Les résumés sont **toujours locaux**, y compris en mode OpenAI : pas de nouvel appel API payant pour les produire. Whisper et Qwen doivent donc être préparés dans les deux modes. Le modèle OpenAI choisi conserve la rédaction, le contrôle des titres et l’analyse des huit images. Aucun basculement payant vers une transcription complète en cas d’échec du résumé ; le clip est indiqué « À revoir » et les caches sont conservés.
+
+Les notes sont affichées sous **Résumés par période de 5 minutes** pour chaque épisode et enregistrées dans `resume_5min.txt` / `resume_5min.json`. La taille du texte détaillé et celle des notes sont indiquées. Les résumés sont réutilisés lorsque la transcription, le jeu et le modèle local restent identiques, même si tu changes le modèle OpenAI. Rouvre un projet puis clique sur **Refaire les titres et miniatures**, en gardant la réutilisation des transcriptions, pour appliquer cette méthode sans découper ni écouter à nouveau les clips.
+
+Cette méthode réduit le volume de texte envoyé pour les titres, donc la part de coût liée aux tokens d’entrée. Le coût des images, sorties et éventuels réessais reste présent. Elle n’accélère pas directement Whisper et ajoute une étape de résumé local ; le temps total dépend du PC et du modèle choisi. Un résumé peut perdre des détails : il s’agit de l’essai à cinq minutes demandé, pas d’une promesse de qualité identique au texte intégral.

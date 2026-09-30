@@ -19,9 +19,10 @@ class ProviderTests(unittest.TestCase):
     def tearDown(self):
         provider.SETTINGS.reset(self.token)
 
-    def test_secret_removed_and_only_speech_required(self):
+    def test_secret_removed_and_local_summaries_required(self):
         self.assertNotIn('api_key', self.config)
-        self.assertTrue(provider.ready({'speech': True, 'ready': False}))
+        self.assertFalse(provider.ready({'speech': True, 'editor': False, 'ready': False}))
+        self.assertTrue(provider.ready({'speech': True, 'editor': True, 'ready': False}))
         self.assertEqual(provider.model_id('gemma3:4b'), 'openai/gpt-4.1')
         with self.assertRaises(ValueError):
             provider.configure({'provider': 'openai', 'ai': True})

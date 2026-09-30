@@ -92,7 +92,7 @@ def enrich(directory, manifest, config, runner, update, reuse=False):
     game, first = settings(config)
     use_ai = bool(config.get("ai", False))
     if use_ai and not ai_provider.ready(ai_status()):
-        raise ValueError("Les modèles locaux ne sont pas prêts. Lance la préparation IA.")
+        raise ValueError("Prépare l’IA locale : Whisper et Qwen sont nécessaires pour les résumés de cinq minutes, même avec OpenAI pour les titres.")
     manifest.update(openai_model=ai_provider.selected_model() if ai_provider.remote() else None, provider="openai" if ai_provider.remote() else "local", game=game, first_episode=first, status="analysing")
     context = {"game": game, "sources": [], "terms": [], "web": False}
     if use_ai:
@@ -204,7 +204,7 @@ def process(config, runner, update):
     if start >= info["duration"]:
         raise ValueError("Le début choisi dépasse la fin de la vidéo.")
     if config.get("ai") and not ai_provider.ready(ai_status()):
-        raise ValueError("Les modèles locaux ne sont pas prêts. Lance la préparation IA ou décoche l’analyse.")
+        raise ValueError("Prépare l’IA locale : Whisper et Qwen sont nécessaires pour les résumés de cinq minutes, même avec OpenAI pour les titres. Ou décoche l’analyse.")
     output = Path(config.get("output") or source.parent/"Clips VOD").resolve()
     output.mkdir(parents=True, exist_ok=True)
     directory = output/(source.stem[:65]+"_"+time.strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:4])

@@ -20,7 +20,7 @@ from file_browser import browse
 
 TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.RLock()
-STATE = {"version": 5, "busy": False, "stage": "Prêt", "progress": 0, "logs": [], "clips": [], "output": ""}
+STATE = {"version": 7, "busy": False, "stage": "Prêt", "progress": 0, "logs": [], "clips": [], "output": ""}
 CANCEL = threading.Event()
 ALLOWED = set()
 

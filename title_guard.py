@@ -67,7 +67,7 @@ def reviewed_candidates(data, review, game, moments, allowed_terms=(), min_count
             continue
         if not all(verdict.get(k) is True for k in ("scope_ok", "grounded", "catchy")):
             continue
-        proof = next((m.get("quote", "") for m in moments if m["id"] == candidate.get("moment_id")), "")
+        proof = next((m.get("source_quote", m.get("quote", "")) for m in moments if m["id"] == candidate.get("moment_id")), "")
         percentages = re.findall(r"(\d+)\s*%\s*(?:de\s+|d['’])([A-Za-zÀ-ÖØ-öø-ÿ]+)", title, re.I)
         if any(number not in proof or norm(unit)[:5] not in norm(proof) for number,unit in percentages):
             rejected.append(title+" : le pourcentage change la statistique citée dans le clip")

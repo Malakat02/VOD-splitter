@@ -71,8 +71,8 @@ class EditorialTests(unittest.TestCase):
             titles=["Je recrute mon futur sacrifice", "Ce plongeur ne reviendra pas", "Je l’envoie sans équipement"]
             def fake_chat(messages, runner, timings, stage, **kwargs):
                 calls.append(stage)
-                if stage.startswith("moments"):
-                    return {"moments":[{"start_segment":0,"end_segment":0,"event":"Projet de sacrifice","stakes":"Perdre un plongeur"}]}
+                if stage.startswith("resume"):
+                    return {"summary":"Un sacrifice est envisagé, il n’a pas encore eu lieu.","events":[{"start_segment":0,"end_segment":0,"event":"Projet de sacrifice","stakes":"Perdre un plongeur","uncertainty":"Action seulement prévue"}]}
                 if stage=="vision":
                     self.assertEqual(len(kwargs["images"]),8)
                     return {"frame":2,"description":"Un plongeur"}
@@ -87,7 +87,7 @@ class EditorialTests(unittest.TestCase):
                     result=analyse(clip,{"audio":True,"duration":4},folder,frames,NoSpeech(),Runner(),{"game":GAME},reuse_legacy=True)
                     self.assertEqual(result["frame"],2)
             self.assertEqual(calls.count("vision"),1)
-            self.assertEqual(calls.count("moments_0"),0)
+            self.assertEqual(calls.count("resume_0_0"),1)
             self.assertEqual(calls.count("titles_0"),2)
 
 

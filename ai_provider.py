@@ -45,7 +45,7 @@ def model_id(local_model):
 
 
 def ready(status):
-    return status['speech'] if remote() else status['ready']
+    return status['speech'] and status.get('editor', False) if remote() else status['ready']
 
 
 def request(path, payload=None):
