@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent
 FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
-def main():
+def browser_main():
     os.chdir(ROOT)
     python = ROOT / ".venv" / "Scripts" / "python.exe"
     if not python.exists():
@@ -49,6 +49,20 @@ def main():
             raise RuntimeError("Le serveur n’a pas démarré. Consulte application.log.")
         time.sleep(.1)
     raise RuntimeError("Le démarrage prend trop longtemps. Consulte application.log.")
+
+
+def main():
+    if '--browser' in sys.argv:
+        browser_main()
+        return
+    exe = ROOT/'VOD Atelier.exe'
+    if exe.is_file():
+        subprocess.Popen([str(exe)],cwd=ROOT,creationflags=FLAGS)
+    else:
+        python = ROOT/'.venv'/'Scripts'/'pythonw.exe'
+        if not python.is_file():
+            raise RuntimeError('Lance Installation/Installer.cmd pour préparer la version bureau.')
+        subprocess.Popen([str(python),str(ROOT/'desktop.py')],cwd=ROOT,creationflags=FLAGS)
 
 
 if __name__ == "__main__":

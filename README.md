@@ -1,18 +1,18 @@
 # VOD-splitter · VOD Atelier
 
-Application Windows locale pour transformer une longue VOD en épisodes.
+Application Windows avec sa propre fenêtre pour transformer une longue VOD en épisodes.
 
 ## Installer depuis GitHub
 
-Télécharge le dépôt avec **Code → Download ZIP**, puis extrais le ZIP, ou clone-le avec Git. Installe Python 3.12 et FFmpeg (avec FFprobe) et rends leurs commandes accessibles dans le PATH Windows. Le dépôt contient le programme, pas les modèles IA ni les vidéos.
+Télécharge le dépôt avec **Code → Download ZIP**, puis extrais le ZIP, ou clone-le avec Git. Dans le dossier **Installation**, double-clique sur **Installer.cmd**. Il prépare Python 3.12 x64, les bibliothèques, FFmpeg/FFprobe, Microsoft WebView2 si nécessaire, puis crée **VOD Atelier.exe** et prépare les IA locales. Le dépôt contient le programme et son installateur, pas les modèles IA ni les vidéos.
 
-Double-clique sur **Lancer VOD Atelier.cmd**. Le lanceur crée le dossier `.venv` et installe Pillow si nécessaire. Dans l’interface, **Préparer l’IA** installe les dépendances restantes et les modèles. Le mode OpenAI utilise ta propre clé API et garde Whisper sur le PC.
+Double-clique ensuite sur **VOD Atelier.exe**. Garde cet EXE avec les autres fichiers du dossier. Les outils sont préparés localement dans `tools`, `.venv` et `models`, sans ajouter de commandes au PATH Windows. Pour différer le téléchargement des modèles, utilise `Installation\Installer.cmd -Mode Application`, puis **Préparer l’IA** dans la fenêtre. Les détails figurent dans [Installation/Lisez-moi.md](Installation/Lisez-moi.md).
 
 ## Ouvrir l’application
 
-Double-clique sur **Lancer VOD Atelier.cmd**. L’interface s’ouvre dans le navigateur. Le serveur écoute uniquement sur ton ordinateur, à une adresse `127.0.0.1`.
+Double-clique sur **VOD Atelier.exe** ou **Lancer VOD Atelier.cmd**. L’interface s’ouvre dans une fenêtre Windows avec son icône, sans navigateur ni console. Elle intègre l’interface existante grâce à Microsoft WebView2 ; le moteur interne écoute uniquement sur `127.0.0.1` et se ferme avec la fenêtre. Une demande de fermeture pendant un traitement propose de l’arrêter, attend sa fin et conserve les clips terminés. Les liens de documentation et de recherche peuvent ouvrir ton navigateur habituel.
 
-1. Choisis ta vidéo avec **Parcourir**, ou colle son chemin. Le sélecteur s’ouvre dans la page : un clic ouvre un dossier, puis sélectionne le fichier et clique sur **Choisir**. Les boutons de disques permettent de passer de C: à D: ou E:, et le champ de chemin permet d’ouvrir directement un dossier.
+1. Choisis ta vidéo avec **Parcourir**, ou colle son chemin. La version bureau ouvre le sélecteur de fichiers Windows. Le mode navigateur de développement conserve son sélecteur intégré.
 2. Indique le début du contenu : `05:00` retire cinq minutes. La durée des épisodes commence après cette intro.
 3. Garde **20 minutes**, ou choisis une autre durée.
 4. Saisis le **nom exact du jeu** et le **numéro du premier clip**. Le jeu saisi fixe le périmètre de recherche et d’analyse : il ne doit pas être remplacé par un jeu supposé à partir de Whisper.
@@ -20,7 +20,7 @@ Double-clique sur **Lancer VOD Atelier.cmd**. L’interface s’ouvre dans le na
 6. Choisis **IA locale** ou **OpenAI**, puis coche **Analyser avec l’IA** pour obtenir les titres et la miniature choisie par le modèle.
 7. Clique sur **Créer mes épisodes**.
 
-Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de la vidéo, sauf si tu choisis une autre destination. Le bouton **Choisir** utilise le même sélecteur intégré : ouvre le dossier voulu et confirme avec **Choisir**. Les fichiers existants ne sont pas écrasés. Une heure de contenu utile donne environ trois épisodes de 20 minutes. Une VOD d’une heure dont on retire cinq minutes donne environ 20 + 35 minutes : le dernier morceau court est intégré au précédent.
+Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de la vidéo, sauf si tu choisis une autre destination. Le bouton **Choisir** ouvre le sélecteur de dossiers Windows. Les fichiers existants ne sont pas écrasés. Une heure de contenu utile donne environ trois épisodes de 20 minutes. Une VOD d’une heure dont on retire cinq minutes donne environ 20 + 35 minutes : le dernier morceau court est intégré au précédent.
 
 ## Contenu des résultats
 
@@ -67,11 +67,12 @@ En mode local, après la préparation, les paroles et images sont traitées sur 
 
 ## Développement et tests
 
-Python 3.12, FFmpeg et FFprobe sont nécessaires. Sur ce PC, le lanceur réutilise le Python fourni avec Codex pour son environnement virtuel. Pour un autre PC, installer Python et FFmpeg, puis lancer le même fichier CMD.
+Python 3.12, FFmpeg et FFprobe sont préparés par le dossier `Installation`. Aucun composant de Codex n’est requis sur un autre PC. Pour développer, utilise `.venv`; `build_desktop.py` recrée l’EXE Windows avec PyInstaller. Le binaire est un lanceur du programme et de ses dépendances dans ce dossier, pas un fichier autonome à déplacer seul.
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe app.py
+.\.venv\Scripts\python.exe desktop.py
+.\.venv\Scripts\python.exe build_desktop.py
 ```
 
 Les tests génèrent une vidéo synthétique, vérifient les durées, le retrait de l’intro, le regroupement du dernier segment court et comparent les empreintes SHA-256 des paquets vidéo pour prouver la copie sans perte ni duplication.
@@ -178,3 +179,5 @@ L’analyse porte ensuite sur le clip entier obtenu. Un dernier épisode de 30 m
 L’IA propose trois titres aux angles différents : association étrange ou contradiction, réaction forte ou absurde, question ou mystère. Un titre n’est pas un résumé : il peut omettre du contexte, être une liste de mots et accentuer quelques mots en majuscules. La cible est de 3 à 7 mots, exceptionnellement jusqu’à 10, avant le suffixe `[Nom du jeu #n]` ajouté par l’application.
 
 Le contrôle indépendant accepte ces formes courtes et vérifie toujours leur sous-entendu contre les résumés du clip. Il écarte les inventions, les références à d’autres jeux, les rubriques descriptives et les reformulations trop proches. Ces consignes sont communes à l’IA locale et à OpenAI. Pour appliquer le style à un projet existant, utilise **Refaire les titres et miniatures** avec la réutilisation des transcriptions.
+
+Pour le mode navigateur de développement uniquement, lance `app.py` ou `launch.py --browser`. Le démarrage habituel utilise la fenêtre bureau.

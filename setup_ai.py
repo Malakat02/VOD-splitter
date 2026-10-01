@@ -22,14 +22,19 @@ def say(text):
 
 
 def setup():
+    from setup_tools import setup as setup_video_tools
+    setup_video_tools()
     say("1/4 — Installation de faster-whisper et Pillow…")
     subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
                     "-r", str(ROOT / "requirements.txt")], check=True, creationflags=NO_WINDOW)
     say("2/4 — Téléchargement du modèle de transcription Whisper base (environ 150 Mo)…")
     from huggingface_hub import snapshot_download
     MODELS.mkdir(exist_ok=True)
-    snapshot_download("Systran/faster-whisper-base", local_dir=MODELS / "whisper-base",
-                      allow_patterns=["model.bin", "config.json", "tokenizer.json", "vocabulary.*", "preprocessor_config.json"])
+    if not all((MODELS/'whisper-base'/name).is_file() for name in ('model.bin','config.json','tokenizer.json')):
+        snapshot_download("Systran/faster-whisper-base", local_dir=MODELS / "whisper-base",
+                          allow_patterns=["model.bin", "config.json", "tokenizer.json", "vocabulary.*", "preprocessor_config.json"])
+    else:
+        say('Whisper est déjà téléchargé.')
     try:
         ollama()
     except Exception:
@@ -78,7 +83,11 @@ def setup():
         else:
             raise RuntimeError("Ollama ne démarre pas. Voir ollama.log.")
     from model_config import TEXT_MODEL, VISION_MODEL
+    available = {m['name'] for m in ollama()['models']}
     for model in dict.fromkeys((VISION_MODEL, TEXT_MODEL)):
+        if model in available:
+            say(f'{model} est déjà disponible.')
+            continue
         say(f"4/4 — Préparation du modèle local {model}…")
         req = urllib.request.Request("http://127.0.0.1:11434/api/pull",
                                      data=json.dumps({"model": model, "stream": True}).encode(),

@@ -62,9 +62,10 @@ class Runner:
 
 
 def binary(name):
-    found = shutil.which(name)
+    local = ROOT / "tools" / "ffmpeg" / "bin" / (name+".exe")
+    found = str(local) if local.is_file() else shutil.which(name)
     if not found:
-        raise RuntimeError(f"{name} introuvable. Installe FFmpeg puis relance l’application.")
+        raise RuntimeError(f"{name} introuvable. Lance Installation/Installer.cmd puis relance l’application.")
     return found
 
 
