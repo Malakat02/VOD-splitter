@@ -20,7 +20,7 @@ Double-clique sur **Lancer VOD Atelier.cmd**. L’interface s’ouvre dans le na
 6. Choisis **IA locale** ou **OpenAI**, puis coche **Analyser avec l’IA** pour obtenir les titres et la miniature choisie par le modèle.
 7. Clique sur **Créer mes épisodes**.
 
-Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de la vidéo, sauf si tu choisis une autre destination. Le bouton **Choisir** utilise le même sélecteur intégré : ouvre le dossier voulu et confirme avec **Choisir**. Les fichiers existants ne sont pas écrasés. Une heure de contenu utile donne environ trois épisodes de 20 minutes. Une VOD d’une heure dont on retire cinq minutes donne environ 20 + 20 + 15 minutes.
+Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de la vidéo, sauf si tu choisis une autre destination. Le bouton **Choisir** utilise le même sélecteur intégré : ouvre le dossier voulu et confirme avec **Choisir**. Les fichiers existants ne sont pas écrasés. Une heure de contenu utile donne environ trois épisodes de 20 minutes. Une VOD d’une heure dont on retire cinq minutes donne environ 20 + 35 minutes : le dernier morceau court est intégré au précédent.
 
 ## Contenu des résultats
 
@@ -29,7 +29,7 @@ Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de 
 - Avec IA : résumés par période de cinq minutes (`resume_5min.txt` et `.json`), résumé global, jusqu’à trois propositions de titres validées, texte de miniature et image sélectionnée. `transcription.txt` contient désormais ces notes compactes ; `transcription.json` reste un cache technique local pour éviter de réécouter la vidéo.
 - `projet.json` : paramètres, début effectivement retenu, durées réelles, résultats et éventuels avertissements.
 
-Clique sur un titre dans l’interface pour le copier. Ouvre **Modifier la miniature** pour changer l’image ou le texte. Les miniatures sont des compositions à partir de vraies images du clip ; l’application ne génère pas de scène fictive.
+Clique sur un titre dans l’interface pour le copier. Ouvre **Modifier la miniature** pour changer l’image ou le texte. Le badge « Épisode » est placé en haut à droite pour laisser la caméra en haut à gauche visible. Les miniatures sont des compositions à partir de vraies images du clip ; l’application ne génère pas de scène fictive.
 
 ## Titres, jeu imposé et recherches
 
@@ -74,7 +74,7 @@ Python 3.12, FFmpeg et FFprobe sont nécessaires. Sur ce PC, le lanceur réutili
 .\.venv\Scripts\python.exe app.py
 ```
 
-Les tests génèrent une vidéo synthétique, vérifient les durées, le retrait de l’intro, le dernier segment court et comparent les empreintes SHA-256 des paquets vidéo pour prouver la copie sans perte ni duplication.
+Les tests génèrent une vidéo synthétique, vérifient les durées, le retrait de l’intro, le regroupement du dernier segment court et comparent les empreintes SHA-256 des paquets vidéo pour prouver la copie sans perte ni duplication.
 
 Sources techniques : [FFmpeg segment muxer](https://ffmpeg.org/ffmpeg-formats.html#segment), [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [Gemma 3 4B dans Ollama](https://ollama.com/library/gemma3:4b), [API locale Ollama](https://docs.ollama.com/api/chat).
 
@@ -163,3 +163,12 @@ Les résumés sont **toujours locaux**, y compris en mode OpenAI : pas de nouvel
 Les notes sont affichées sous **Résumés par période de 5 minutes** pour chaque épisode et enregistrées dans `resume_5min.txt` / `resume_5min.json`. La taille du texte détaillé et celle des notes sont indiquées. Les résumés sont réutilisés lorsque la transcription, le jeu et le modèle local restent identiques, même si tu changes le modèle OpenAI. Rouvre un projet puis clique sur **Refaire les titres et miniatures**, en gardant la réutilisation des transcriptions, pour appliquer cette méthode sans découper ni écouter à nouveau les clips.
 
 Cette méthode réduit le volume de texte envoyé pour les titres, donc la part de coût liée aux tokens d’entrée. Le coût des images, sorties et éventuels réessais reste présent. Elle n’accélère pas directement Whisper et ajoute une étape de résumé local ; le temps total dépend du PC et du modèle choisi. Un résumé peut perdre des détails : il s’agit de l’essai à cinq minutes demandé, pas d’une promesse de qualité identique au texte intégral.
+
+
+## Dernier morceau court regroupé
+
+Si le dernier morceau fait moins que la durée choisie (20 minutes par défaut), il est automatiquement intégré à l’avant-dernier épisode. Exemple : sept clips de 20 minutes, puis 20 + 10 minutes, deviennent sept clips de 20 minutes et un dernier de 30 minutes. Une VOD plus courte qu’un épisode reste un seul clip.
+
+Le regroupement est prévu avant le découpage : FFmpeg omet la dernière coupe et copie les pistes vidéo/audio en une seule passe, sans réencodage ni recopie des deux derniers fichiers. Les très petits écarts de durée dus aux horodatages et aux images clés n’affectent pas la logique des périodes prévues. L’estimation affichée tient compte de cette règle.
+
+L’analyse porte ensuite sur le clip entier obtenu. Un dernier épisode de 30 minutes reçoit six résumés de cinq minutes, un titre et une miniature pour l’ensemble. La règle s’applique aux nouvelles créations ; rouvrir un ancien projet pour refaire ses titres ne modifie pas ses fichiers vidéo.

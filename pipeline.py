@@ -33,6 +33,19 @@ def settings(config):
     return game, first
 
 
+def clip_plan(duration, target):
+    """Omit the final cut when its remainder would become a short episode."""
+    if not all(math.isfinite(n) and n > 0 for n in (duration, target)):
+        raise ValueError("Durée de découpage invalide.")
+    # Container timestamps can differ from exact minute boundaries by milliseconds.
+    count = max(1, math.ceil((duration-.1)/target))
+    last = duration-target*(count-1)
+    if count > 1 and last < target-.1:
+        count -= 1
+    boundaries = [target*i for i in range(1, count)]
+    return boundaries, [target]*(count-1)+[duration-target*(count-1)]
+
+
 def safe_video_name(title, parent, extension, number):
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", title).strip(" .")
     limit = min(160, 240-len(str(parent))-len(extension)-1)
@@ -213,19 +226,27 @@ def process(config, runner, update):
     if actual_start >= info["duration"]-.1:
         raise ValueError("Aucune séquence utilisable après ce début.")
     runner.log(f"Début retenu : {stamp(actual_start)} (image clé, écart {actual_start-start:.2f} s).")
+    remaining = info["duration"]-actual_start
+    boundaries, planned_durations = clip_plan(remaining, minutes*60)
+    if len(planned_durations) < max(1, math.ceil((remaining-.1)/(minutes*60))):
+        runner.log(f"Le dernier morceau court est intégré au précédent : dernier épisode prévu de {stamp(planned_durations[-1])}.")
     mp4_ok = info["video"] in {"h264", "hevc", "av1", "mpeg4"} and all(
         c in {"aac", "mp3", "ac3", "eac3", "alac"} for c in info["audio_codecs"])
     ext = ".mp4" if mp4_ok else ".mkv"
     manifest = {"source": str(source), "requested_start": start, "actual_start": actual_start,
-                "target_seconds": minutes*60, "game": game, "first_episode": first, "clips": [], "status": "cutting"}
+                "target_seconds": minutes*60, "merge_short_tail": True, "planned_seconds": planned_durations,
+                "game": game, "first_episode": first, "clips": [], "status": "cutting"}
     save_project(directory, manifest, update)
     runner.log("Découpage sans réencodage — une seule passe d’écriture des pistes vidéo et audio…")
     update({"stage": "Découpage des vidéos", "progress": 5})
     args = [binary("ffmpeg"), "-v", "warning", "-nostdin", "-ss", f"{actual_start:.6f}", "-i", source,
             "-map", f"0:{info['video_index']}", "-map", "0:a?", "-c", "copy", "-avoid_negative_ts", "make_zero",
-            "-f", "segment", "-segment_time", str(minutes*60), "-segment_time_delta", "0.1", "-reset_timestamps", "1",
+            "-f", "segment", "-segment_time_delta", "0.1", "-reset_timestamps", "1",
             "-segment_start_number", "1", "-segment_list", directory/"segments.csv", "-segment_list_type", "csv",
             directory/("clip_%03d"+ext)]
+    cut_options = (["-segment_times", ",".join(f"{t:.6f}" for t in boundaries)] if boundaries else
+                   ["-segment_time", f"{remaining+minutes*60:.6f}"])
+    args[-1:-1] = cut_options
     started = time.perf_counter()
     try:
         runner.run(args)

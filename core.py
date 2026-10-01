@@ -243,8 +243,12 @@ def thumbnail(frame, title, dest, episode):
         if (len(lines) <= 3 and all(d.textlength(line, font=f) <= 1140 for line in lines)) or size <= 24:
             break
         size -= 4
-    d.rounded_rectangle((48, 44, 260, 100), radius=12, fill="#bef264")
-    d.text((66, 52), f"ÉPISODE {episode:02}", fill="#142011", font=font(28))
+    badge_text = f"ÉPISODE {episode:02}"
+    badge_font = font(28)
+    badge_width = max(212, math.ceil(d.textlength(badge_text, font=badge_font))+36)
+    badge_left = 1280-48-badge_width
+    d.rounded_rectangle((badge_left, 44, 1232, 100), radius=12, fill="#bef264")
+    d.text((badge_left+18, 52), badge_text, fill="#142011", font=badge_font)
     d.rectangle((50, 660-len(lines)*(size+8), 58, 666), fill="#bef264")
     d.multiline_text((82, 660-len(lines)*(size+8)), "\n".join(lines), fill="white",
                      font=f, spacing=8, stroke_width=2, stroke_fill="#10151c")
