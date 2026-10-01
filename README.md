@@ -172,3 +172,9 @@ Si le dernier morceau fait moins que la durée choisie (20 minutes par défaut),
 Le regroupement est prévu avant le découpage : FFmpeg omet la dernière coupe et copie les pistes vidéo/audio en une seule passe, sans réencodage ni recopie des deux derniers fichiers. Les très petits écarts de durée dus aux horodatages et aux images clés n’affectent pas la logique des périodes prévues. L’estimation affichée tient compte de cette règle.
 
 L’analyse porte ensuite sur le clip entier obtenu. Un dernier épisode de 30 minutes reçoit six résumés de cinq minutes, un titre et une miniature pour l’ensemble. La règle s’applique aux nouvelles créations ; rouvrir un ancien projet pour refaire ses titres ne modifie pas ses fichiers vidéo.
+
+## Titres courts et intrigants
+
+L’IA propose trois titres aux angles différents : association étrange ou contradiction, réaction forte ou absurde, question ou mystère. Un titre n’est pas un résumé : il peut omettre du contexte, être une liste de mots et accentuer quelques mots en majuscules. La cible est de 3 à 7 mots, exceptionnellement jusqu’à 10, avant le suffixe `[Nom du jeu #n]` ajouté par l’application.
+
+Le contrôle indépendant accepte ces formes courtes et vérifie toujours leur sous-entendu contre les résumés du clip. Il écarte les inventions, les références à d’autres jeux, les rubriques descriptives et les reformulations trop proches. Ces consignes sont communes à l’IA locale et à OpenAI. Pour appliquer le style à un projet existant, utilise **Refaire les titres et miniatures** avec la réutilisation des transcriptions.

@@ -10,7 +10,7 @@ from analysis_local import analyse, identity, title_with_suffix
 from core import Runner
 from pipeline import safe_video_name
 from research import within_game_scope
-from title_guard import reviewed_candidates, scope_error
+from title_guard import reviewed_candidates, scope_error, similar_title
 
 GAME = "DIVE or DIE - Children of Rain"
 
@@ -42,6 +42,29 @@ class EditorialTests(unittest.TestCase):
         self.assertTrue(within_game_scope("DIVE or DIE Wiki – objets", GAME))
         self.assertFalse(within_game_scope("DAVE THE DIVER – Wiki officiel", GAME))
         self.assertFalse(within_game_scope("Plongée et survie : Subnautica", GAME))
+
+    def test_short_intriguing_titles_allow_emphasis_and_omitted_context(self):
+        titles = ["LAMA. ORGANES. ÉLECTRICITÉ.", "LA PIRE IDÉE POSSIBLE", "POURQUOI IL Y EN A AUTANT ?!"]
+        data = {"candidates":[{"title":t,"moment_id":1} for t in titles]}
+        review = {"scope_game":"Palworld","best":[0,1,2],"judgments":[dict(index=i,scope_ok=True,grounded=True,catchy=True) for i in range(3)]}
+        self.assertEqual([c['title'] for c in reviewed_candidates(data,review,'Palworld',[{'id':1}])],titles)
+        review['judgments'][0]['grounded'] = False
+        with self.assertRaises(ValueError):
+            reviewed_candidates(data,review,'Palworld',[{'id':1}])
+        data['candidates'][0]['title'] = 'SUBNAUTICA EST CASSÉ'
+        review['judgments'][0]['grounded'] = True
+        with self.assertRaises(ValueError):
+            reviewed_candidates(data,review,'Palworld',[{'id':1}])
+
+    def test_descriptive_long_and_rephrased_titles_are_rejected(self):
+        titles = ["Nous découvrons de nouvelles créatures", "Je construis ma base et explore la carte puis rencontre une créature", "CE TRUC EST CASSÉ", "C’est complètement cassé, ce truc"]
+        data = {"candidates":[{"title":t,"moment_id":1} for t in titles]}
+        review = {"scope_game":"Palworld","best":[0,1,2,3],"judgments":[dict(index=i,scope_ok=True,grounded=True,catchy=True) for i in range(4)]}
+        approved = reviewed_candidates(data,review,'Palworld',[{'id':1}],min_count=1)
+        self.assertEqual([c['title'] for c in approved],[titles[2]])
+        self.assertTrue(similar_title('Où est ma roue ?', 'Où est la roue ?'))
+        self.assertTrue(similar_title('BLAZE. FOUR ÉLECTRIQUE. VITESSE ?', 'BLAZE DANS LE FOUR ?'))
+        self.assertFalse(similar_title('LA PIRE IDÉE POSSIBLE','LAMA. ORGANES. ÉLECTRICITÉ.'))
 
     def test_safe_filename_and_identity_survive_rename(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,6 +100,11 @@ class EditorialTests(unittest.TestCase):
                     self.assertEqual(len(kwargs["images"]),8)
                     return {"frame":2,"description":"Un plongeur"}
                 if stage.startswith("titles"):
+                    prompt=messages[-1]['content']
+                    self.assertIn('un titre n’est PAS un résumé',prompt)
+                    self.assertIn('TROIS titres très différents',prompt)
+                    self.assertNotIn('La moitié commence',prompt)
+                    self.assertEqual(kwargs['schema']['properties']['candidates']['maxItems'],6)
                     return {"candidates":[{"title":t,"moment_id":1,"reason":"citation","thumbnail_text":"Sacrifice prévu"} for t in titles],"summary":"Un sacrifice est prévu."}
                 return {"scope_game":GAME,"best":[0,1,2],"judgments":[dict(index=i,scope_ok=True,grounded=True,catchy=True) for i in range(3)]}
             class NoSpeech:

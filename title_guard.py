@@ -1,6 +1,7 @@
 """Deterministic publication checks, complemented by a separate evidence review."""
 import re
 import unicodedata
+from difflib import SequenceMatcher
 
 # Extra guard against frequent game substitutions in noisy underwater/survival transcripts.
 # This is not the primary scope check: every candidate also undergoes a separate model review.
@@ -27,7 +28,7 @@ def scope_error(title, game):
 
 def generic_title(title):
     value = norm(title)
-    return any(phrase in value for phrase in ("gameplay", "survie intense", "analyse du jeu", "strategies et ressources",
+    return bool(re.match(r"(?:nous decouvrons|exploration et construction|un combat difficile contre)\b", value)) or any(phrase in value for phrase in ("gameplay", "survie intense", "analyse du jeu", "strategies et ressources",
                                                "les defis de", "une aventure epique", "secrets du jeu", "et le silence",
                                                "le prix de la survie", "une promesse", "appel des abysses"))
 
@@ -37,9 +38,20 @@ def unknown_name(title, allowed_terms):
     known = set(norm(" ".join(allowed_terms)).split())
     common = set("je j il ils elle elles on nous vous un une le la les l des de du d ce ces cette c mon ma mes ton ta tes son sa ses sans avec et ou mais plus pas tout tous quand comment pourquoi qui quoi ou quel quelle rien impossible ca c est ai fait neuf dix deux trois quatre cinq six sept huit alors attention jamais encore dernier derniere objectif sacrifice sacrifices prix difficulte course oxygene temps sang choix mort plongeur plongee perdre perdu tuer danger survie cristal cristaux porte portail".split())
     for i, word in enumerate(words):
-        if i and word[0].isupper() and norm(word) not in known|common:
+        # Emphasis in uppercase is not evidence of a proper name. Game scope and
+        # independent grounding still apply to every word, regardless of case.
+        if i and word[0].isupper() and not word.isupper() and norm(word) not in known|common:
             return word
     return ""
+
+
+def similar_title(left, right):
+    left, right = norm(left), norm(right)
+    if SequenceMatcher(None, left, right).ratio() >= .85:
+        return True
+    stop = set("je j on nous vous il elle ils elles le la les un une des du de d l c est ce cette ces et ou mais a en pour dans au aux mon ma mes ton ta tes son sa ses ca qui que quoi pourquoi comment completement vraiment totalement absolument".split())
+    a, b = set(left.split())-stop, set(right.split())-stop
+    return len(a & b) >= 2 and (len(a & b)/len(a | b) >= .75 or len(a & b)/min(len(a),len(b)) >= .8)
 
 
 def reviewed_candidates(data, review, game, moments, allowed_terms=(), min_count=3):
@@ -63,6 +75,9 @@ def reviewed_candidates(data, review, game, moments, allowed_terms=(), min_count
         if not title or scope_error(title, game) or generic_title(title) or unknown_name(title, allowed_terms):
             rejected.append(title+" : nom ou formulation non validé")
             continue
+        if len(re.findall(r"[^\W_]+(?:['’\-][^\W_]+)*", title)) > 10:
+            rejected.append(title+" : plus de 10 mots")
+            continue
         if moments and candidate.get("moment_id") not in valid_ids:
             continue
         if not all(verdict.get(k) is True for k in ("scope_ok", "grounded", "catchy")):
@@ -72,7 +87,7 @@ def reviewed_candidates(data, review, game, moments, allowed_terms=(), min_count
         if any(number not in proof or norm(unit)[:5] not in norm(proof) for number,unit in percentages):
             rejected.append(title+" : le pourcentage change la statistique citée dans le clip")
             continue
-        if norm(title) in {norm(c["title"]) for c in approved}:
+        if any(similar_title(title, c["title"]) for c in approved):
             continue
         approved.append(candidate)
     if len(approved) < min_count:
