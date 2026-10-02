@@ -193,3 +193,21 @@ Le montage nécessite un réencodage complet, donc davantage de temps et d’esp
 **Couper pendant une pause de voix** analyse localement de petites fenêtres autour des limites prévues avec Silero VAD, fourni par faster-whisper. La musique ne constitue pas à elle seule une voix. L’application cherche une pause d’au moins 500 ms, avec une marge autour des paroles détectées, à ±30 secondes. Elle conserve la continuité des segments et n’efface aucun intervalle. Chaque épisode ordinaire reste dans cette tolérance ; le dernier regroupé peut être plus long. La détection peut confondre des voix de jeu ou manquer une voix faible : si aucun point utilisable n’est trouvé, la limite prévue est conservée et le journal l’indique. En mode copie, une pause doit aussi contenir une image clé ; les limites réelles restent soumises aux images clés de la source.
 
 La règle du dernier morceau court reste fondée sur les périodes prévues, avant les légers ajustements de silence. Une petite réduction du dernier épisode à cause d’une coupe décalée n’ajoute pas un nouveau regroupement. Rouvrir un projet pour refaire ses titres ne remonte pas les vidéos existantes. Les tags communs restent dans le `tags.txt` du projet.
+
+
+## Montage avec un GPU AMD
+
+Dans **Encoder le montage avec**, choisis **GPU AMD · Radeon / AMF haute qualité**. Ce choix est mémorisé localement. Il utilise l’encodeur matériel H.264 AMD AMF, avec le profil d’usage `high_quality`, le préréglage `quality` et une quantification constante CQP 20. CQP et CRF ne sont pas équivalents : ce réglage a été comparé au rendu CPU H.264 CRF 16 existant. Le décodage des sources H.264 est également confié à D3D11VA. Les effets, la transparence du stinger et le fondu restent calculés sur le CPU. Le GPU ne change pas les résumés, les titres ni la piste utilisée pour détecter les pauses.
+
+FFmpeg vérifie réellement l’initialisation du moteur AMD à la résolution et à la cadence du fichier avant le montage. Si l’encodeur ou le pilote est indisponible, le CPU prend le relais. Si le rendu GPU échoue, le fichier incomplet est supprimé et ce clip est recommencé une fois sur le CPU ; les suivants restent sur le CPU. Le moteur effectivement utilisé est enregistré pour chaque clip et affiché dans l’interface. Le rendu sans perte et les sources dont le format de couleur n’est pas YUV 4:2:0 8 bits utilisent le CPU pour préserver ce choix de qualité. Le montage HDR reste indisponible.
+
+La RX 9070 XT a été détectée et testée le 2 octobre 2026 avec le FFmpeg et le pilote AMD déjà présents sur le PC. Sur un extrait réel de 20 secondes, avec l’intro, le stinger, le fondu et l’audio, le rendu donne :
+
+| Rendu | Temps du montage | Taille | VMAF moyen du contenu sans effets |
+| --- | ---: | ---: | ---: |
+| CPU · H.264 CRF 16 | 16,61 s | 38,23 Mo | 97,82 |
+| AMD · H.264 CQP 20 + décodage D3D11VA | 12,61 s | 60,59 Mo | 98,09 |
+
+Le contrôle compare les images alignées à un rendu sans perte du même montage, sans l’intro ni la fin fondue. Le test GPU avec décodage CPU et celui avec décodage D3D11VA ont produit des fichiers identiques (SHA-256). Le gain de temps constaté est d’environ 24 %, avec une taille supérieure d’environ 58 %. Ce sont des mesures sur un extrait, pas une promesse pour toutes les VOD ni une garantie de qualité identique pour tous les détails. Les images complexes, la résolution, la cadence et la charge du PC peuvent modifier le résultat. Le CPU reste le choix initial ; le GPU est une option explicite.
+
+Sources techniques : [fiche AMD RX 9070 XT](https://www.amd.com/en/products/graphics/desktops/radeon/9000-series/amd-radeon-rx-9070xt.html), [réglages AMF dans FFmpeg — AMD GPUOpen](https://github.com/GPUOpen-LibrariesAndSDKs/AMF/wiki/AMF%20Encoder%20Settings%20and%20Tuning%20in%20FFmpeg).

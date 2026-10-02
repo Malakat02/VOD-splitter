@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 
 from core import ROOT, Runner, binary, probe
+from video_encoder import cpu
 
 
 def assets(directory=None, runner=None):
@@ -39,7 +40,8 @@ def assets(directory=None, runner=None):
             'intro_seconds': 2+stinger_info['duration']}
 
 
-def render(source, start, duration, dest, info, media, runner, lossless=False):
+def render(source, start, duration, dest, info, media, runner, lossless=False, encoder=None):
+    encoder = encoder if encoder is not None and not lossless else cpu(lossless)
     fps = float(Fraction(info.get('fps', '30/1')))
     fps_string = info.get('fps', '30/1')
     # Round intro to whole frames. Gameplay duration remains separate for five-minute summaries.
@@ -51,6 +53,9 @@ def render(source, start, duration, dest, info, media, runner, lossless=False):
     scale = f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps_string}'
     args = [binary('ffmpeg'), '-v', 'warning', '-nostdin', '-y', '-ss', f'{start:.6f}',
             '-t', f'{duration:.6f}', '-i', source, '-stream_loop', '-1', '-i', media['screen']]
+    if encoder.get('hardware_decode'):
+        position=args.index('-i')
+        args[position:position]=['-hwaccel','d3d11va']
     if media['stinger_info'].get('alpha'):
         args += ['-c:v', 'libvpx-vp9']
     args += ['-i', media['stinger']]
@@ -88,14 +93,31 @@ def render(source, start, duration, dest, info, media, runner, lossless=False):
     # libx264 supports these formats; reject silent HDR/high-bit-depth conversion.
     if pixel_format not in {'yuv420p','yuv420p10le','yuv422p','yuv422p10le','yuv444p','yuv444p10le'}:
         raise ValueError(f'Format vidéo {pixel_format} non pris en charge pour le montage. Utilise le mode sans montage.')
-    args += ['-c:v', 'libx264', '-preset', 'fast', '-crf', '0' if lossless else '16', '-pix_fmt', pixel_format]
+    encoding_index = len(args)
+    args += encoder['options'] + ['-pix_fmt', pixel_format]
     if tracks:
         args += ['-c:a', 'flac' if lossless else 'aac']
         if not lossless:
             args += ['-b:a','320k']
     args += ['-t', f'{total:.6f}', dest]
     try:
-        runner.run(args)
+        try:
+            runner.run(args)
+        except RuntimeError:
+            if encoder['engine'] != 'amd':
+                raise
+            dest.unlink(missing_ok=True)
+            runner.log('Échec du rendu GPU : nouvelle tentative de ce clip sur le CPU, avec la qualité habituelle.')
+            length=len(encoder['options'])
+            if encoder.get('hardware_decode'):
+                position=args.index('-hwaccel')
+                del args[position:position+2]
+                encoding_index-=2
+            encoder.clear()
+            encoder.update(cpu())
+            encoder['fallback']='Échec du rendu GPU'
+            args[encoding_index:encoding_index+length]=encoder['options']
+            runner.run(args)
     except BaseException:
         # An incomplete encode is never advertised as a finished clip.
         dest.unlink(missing_ok=True)

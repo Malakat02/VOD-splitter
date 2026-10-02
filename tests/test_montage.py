@@ -10,6 +10,7 @@ from core import ROOT, Runner, Cancelled, binary, probe
 from montage import assets, render
 from pipeline import process, load_project
 from smart_cuts import silence_candidates, adjust_boundaries, speech_window
+from video_encoder import amd
 
 
 class MontageTests(unittest.TestCase):
@@ -168,6 +169,28 @@ class MontageTests(unittest.TestCase):
         self.assertEqual(probe(dest)['audio_codecs'],['aac'])
         self.assertGreater(abs(self.audio(dest,1)).max(),.01)
         self.assertLess(abs(self.audio(dest,offset+1)).max(),1e-6)
+
+    def test_failed_gpu_render_retries_cpu_without_losing_completed_content(self):
+        dest=ROOT/'tests'/'output'/'gpu-retry.mp4'
+        encoder=amd()
+        encoder['hardware_decode']=True
+        real_run=self.r.run
+        attempts=[]
+        def run(args):
+            if '-filter_complex' in args:
+                attempts.append(args)
+                if 'h264_amf' in args:
+                    dest.write_bytes(b'incomplete gpu output')
+                    raise RuntimeError('GPU driver failure')
+            return real_run(args)
+        with patch.object(self.r,'run',side_effect=run):
+            offset=render(self.source,120,10,dest,probe(self.source),assets(self.fixture,self.r),self.r,encoder=encoder)
+        self.assertEqual(encoder['engine'],'cpu')
+        self.assertEqual(len(attempts),2)
+        self.assertNotIn('h264_amf',attempts[1])
+        self.assertNotIn('-hwaccel',attempts[1])
+        self.assertIn('libvpx-vp9',attempts[1])
+        self.assertAlmostEqual(probe(dest)['duration'],offset+10,delta=.12)
 
 
 if __name__=='__main__':

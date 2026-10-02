@@ -1,4 +1,4 @@
-"""Local VOD pipeline. Video/audio streams are always copied, never encoded."""
+"""Local media, speech and thumbnail utilities used by copying and rendering pipelines."""
 from __future__ import annotations
 import base64
 import csv

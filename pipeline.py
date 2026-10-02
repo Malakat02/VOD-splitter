@@ -15,6 +15,7 @@ from analysis_local import analyse, identity, digest, cached, save_cache, title_
 from research import clean_game, game_context
 from smart_cuts import adjust_boundaries
 from montage import assets, render
+from video_encoder import choose as choose_encoder
 
 
 class LazySpeech:
@@ -231,6 +232,7 @@ def process(config, runner, update):
     media = assets(config.get('montage_directory'), runner) if use_montage else None
     if use_montage and info.get('color_transfer') in {'smpte2084','arib-std-b67'}:
         raise ValueError('Le montage SDR ne prend pas encore en charge les VOD HDR. Décoche le montage pour conserver la vidéo HDR.')
+    encoder = choose_encoder(config.get('video_encoder','cpu'),info,lossless,runner) if use_montage else None
     output = Path(config.get("output") or source.parent/"Clips VOD").resolve()
     output.mkdir(parents=True, exist_ok=True)
     directory = output/(source.stem[:65]+"_"+time.strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:4])
@@ -256,6 +258,7 @@ def process(config, runner, update):
                 "target_seconds": minutes*60, "merge_short_tail": True, "planned_seconds": planned_durations,
                 "game": game, "first_episode": first, "clips": [], "status": "cutting",
                 'montage':use_montage, 'render_quality':config.get('render_quality','high'),
+                'requested_encoder':config.get('video_encoder','cpu'),
                 'cut_decisions':cut_decisions, 'smart_cuts':bool(config.get('smart_cuts',True))}
     save_project(directory, manifest, update)
     if use_montage:
@@ -270,11 +273,12 @@ def process(config, runner, update):
                 update({'stage':f'Montage {idx+1} / {len(planned_durations)}',
                         'progress':5+7*idx/len(planned_durations)})
                 runner.log(f'Montage du clip {idx+1}/{len(planned_durations)}…')
-                offset = render(source, actual_start+a, b-a, clip, info, media, runner, lossless)
+                offset = render(source, actual_start+a, b-a, clip, info, media, runner, lossless, encoder=encoder)
                 ci = probe(clip,runner)
                 manifest['clips'].append({'number':first+idx,'file':str(clip),'directory':str(folder),
                     'duration':ci['duration'], 'content_offset':offset, 'content_duration':b-a,
                     'source_start':actual_start+a, 'source_end':actual_start+b,
+                    'video_encoder':encoder['engine'], 'video_codec':encoder['codec'],
                     'titles':[title_with_suffix(f'Épisode {first+idx}',game,first+idx)],'ai':False,'status':'pending'})
                 save_project(directory,manifest,update)
         except BaseException:

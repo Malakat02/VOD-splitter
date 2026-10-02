@@ -26,7 +26,7 @@ class DesktopTests(unittest.TestCase):
                 self.assertEqual(denied.exception.code,404)
                 request = urllib.request.Request(base+'api/state',headers={'X-Vod-Token':app.TOKEN})
                 with opener.open(request,timeout=2) as response:
-                    self.assertEqual(json.load(response)['version'],9)
+                    self.assertEqual(json.load(response)['version'],10)
                 with self.assertRaises(urllib.error.HTTPError) as denied_host:
                     opener.open(urllib.request.Request(base+'api/state',headers={'Host':'foreign.example','X-Vod-Token':app.TOKEN}),timeout=2)
                 self.assertEqual(denied_host.exception.code,403)
