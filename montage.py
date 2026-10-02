@@ -94,7 +94,7 @@ def render(source, start, duration, dest, info, media, runner, lossless=False, e
     if pixel_format not in {'yuv420p','yuv420p10le','yuv422p','yuv422p10le','yuv444p','yuv444p10le'}:
         raise ValueError(f'Format vidéo {pixel_format} non pris en charge pour le montage. Utilise le mode sans montage.')
     encoding_index = len(args)
-    args += encoder['options'] + ['-pix_fmt', pixel_format]
+    args += encoder['options'] + ['-pix_fmt', encoder.get('pixel_format',pixel_format)]
     if tracks:
         args += ['-c:a', 'flac' if lossless else 'aac']
         if not lossless:
@@ -117,6 +117,7 @@ def render(source, start, duration, dest, info, media, runner, lossless=False, e
             encoder.update(cpu())
             encoder['fallback']='Échec du rendu GPU'
             args[encoding_index:encoding_index+length]=encoder['options']
+            args[args.index('-pix_fmt',encoding_index)+1]=pixel_format
             runner.run(args)
     except BaseException:
         # An incomplete encode is never advertised as a finished clip.

@@ -126,6 +126,7 @@ def main():
                 html = response.read().decode('utf-8')
             result = {'loaded':True,'url':window.get_current_url().split('#')[0], 'version':state['version'],
                       'controls':all(f'id="{name}"' in html for name in ('source','provider','launch','montage','smart-cuts','render-quality','video-encoder')),
+                      'av1_option':window.evaluate_js("!!document.querySelector('#video-encoder option[value=amd_av1]')"),
                       'montage_defaults':window.evaluate_js("({montage:document.getElementById('montage').checked,smart_cuts:document.getElementById('smart-cuts').checked,quality:document.getElementById('render-quality').value,encoder:document.getElementById('video-encoder').value})")}
             report = ROOT/'tests'/'output'/'desktop-smoke.json'
             report.parent.mkdir(parents=True,exist_ok=True)

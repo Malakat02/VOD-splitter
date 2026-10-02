@@ -1,11 +1,11 @@
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from core import Cancelled
-from video_encoder import choose, cpu, amd
+from video_encoder import choose, cpu, amd, amd_av1
 
 
 class VideoEncoderTests(unittest.TestCase):
@@ -42,6 +42,25 @@ class VideoEncoderTests(unittest.TestCase):
         with self.assertRaises(Cancelled):choose('amd',self.info,False,self.runner)
         self.assertEqual(self.runner.run.call_count,1)
         with self.assertRaises(ValueError):choose('unknown',self.info,False,self.runner)
+
+    def test_av1_uses_its_own_quality_scale_and_checks_mp4_dimensions(self):
+        with patch('video_encoder.probe',return_value={'video':'av1','width':1920,'height':1080}) as inspection:
+            chosen=choose('amd_av1',self.info,False,self.runner)
+        self.assertEqual(chosen['codec'],'av1_amf')
+        self.assertEqual(chosen['pixel_format'],'nv12')
+        self.assertTrue(chosen['hardware_decode'])
+        args=self.runner.run.call_args.args[0]
+        self.assertEqual(args[args.index('-qp_i')+1], '40')
+        self.assertEqual(args[args.index('-preanalysis')+1], 'false')
+        self.assertEqual(Path(args[-1]).suffix,'.mp4')
+        inspection.assert_called_once()
+
+    def test_av1_unexpected_padding_falls_back_without_resizing_source(self):
+        with patch('video_encoder.probe',return_value={'video':'av1','width':1920,'height':1082}):
+            chosen=choose('amd_av1',self.info,False,self.runner)
+        self.assertEqual(chosen['codec'],'libx264')
+        self.assertEqual(chosen['options'],cpu()['options'])
+        self.assertEqual(choose('amd_av1',self.info,True,self.runner)['options'],cpu(True)['options'])
 
 
 if __name__=='__main__':

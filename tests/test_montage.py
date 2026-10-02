@@ -10,7 +10,7 @@ from core import ROOT, Runner, Cancelled, binary, probe
 from montage import assets, render
 from pipeline import process, load_project
 from smart_cuts import silence_candidates, adjust_boundaries, speech_window
-from video_encoder import amd
+from video_encoder import amd, amd_av1
 
 
 class MontageTests(unittest.TestCase):
@@ -191,6 +191,26 @@ class MontageTests(unittest.TestCase):
         self.assertNotIn('-hwaccel',attempts[1])
         self.assertIn('libvpx-vp9',attempts[1])
         self.assertAlmostEqual(probe(dest)['duration'],offset+10,delta=.12)
+
+    def test_av1_failure_restores_cpu_pixel_format_and_all_tracks(self):
+        dest=ROOT/'tests'/'output'/'av1-retry.mp4'
+        encoder=amd_av1();encoder['hardware_decode']=True
+        real_run=self.r.run;attempts=[]
+        def run(args):
+            if '-filter_complex' in args:
+                attempts.append(list(args))
+                if 'av1_amf' in args:
+                    raise RuntimeError('AV1 driver failure')
+            return real_run(args)
+        with patch.object(self.r,'run',side_effect=run):
+            render(self.source,120,10,dest,probe(self.source),assets(self.fixture,self.r),self.r,encoder=encoder)
+        self.assertEqual(encoder['engine'],'cpu')
+        self.assertIn('nv12',attempts[0])
+        self.assertNotIn('nv12',attempts[1])
+        self.assertNotIn('-hwaccel',attempts[1])
+        self.assertNotIn('-preanalysis',attempts[1])
+        self.assertEqual(probe(dest)['video'],'h264')
+        self.assertEqual(len(probe(dest)['audio_tracks']),2)
 
 
 if __name__=='__main__':
