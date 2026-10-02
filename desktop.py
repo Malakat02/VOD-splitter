@@ -14,7 +14,7 @@ from local_runtime import ensure_ollama
 
 
 class DesktopSession:
-    def __init__(self):
+    def __init__(self, reuse_port=True):
         # Reuse an available port to retain the model/game preferences in localStorage.
         config = ROOT/'cache'/'desktop-port.json'
         try:
@@ -23,12 +23,15 @@ class DesktopSession:
                 port = 0
         except (OSError,ValueError,KeyError,TypeError):
             port = 0
+        if not reuse_port:
+            port = 0
         try:
             self.server = ThreadingHTTPServer(("127.0.0.1", port), app.Handler)
         except OSError:
             self.server = ThreadingHTTPServer(("127.0.0.1", 0), app.Handler)
-        config.parent.mkdir(parents=True,exist_ok=True)
-        config.write_text(json.dumps({'port':self.server.server_port}),encoding='utf-8')
+        if reuse_port:
+            config.parent.mkdir(parents=True,exist_ok=True)
+            config.write_text(json.dumps({'port':self.server.server_port}),encoding='utf-8')
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.url = f"http://127.0.0.1:{self.server.server_port}/#token={app.TOKEN}"
 
@@ -103,7 +106,7 @@ def main():
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('VODAtelier.Desktop')
     ensure_ollama()
-    session = DesktopSession()
+    session = DesktopSession(reuse_port=not args.smoke_test)
     session.start()
     if args.smoke_test:
         print('Serveur interne démarré.',flush=True)
@@ -126,7 +129,7 @@ def main():
                 html = response.read().decode('utf-8')
             result = {'loaded':True,'url':window.get_current_url().split('#')[0], 'version':state['version'],
                       'controls':all(f'id="{name}"' in html for name in ('source','provider','launch','montage','smart-cuts','render-quality','video-encoder')),
-                      'av1_option':window.evaluate_js("!!document.querySelector('#video-encoder option[value=amd_av1]')"),
+                      'av1_option':window.evaluate_js("!!document.querySelector('#video-encoder option[value=gpu_av1]')"),
                       'montage_defaults':window.evaluate_js("({montage:document.getElementById('montage').checked,smart_cuts:document.getElementById('smart-cuts').checked,quality:document.getElementById('render-quality').value,encoder:document.getElementById('video-encoder').value})")}
             report = ROOT/'tests'/'output'/'desktop-smoke.json'
             report.parent.mkdir(parents=True,exist_ok=True)

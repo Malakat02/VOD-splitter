@@ -104,7 +104,7 @@ def render(source, start, duration, dest, info, media, runner, lossless=False, e
         try:
             runner.run(args)
         except RuntimeError:
-            if encoder['engine'] != 'amd':
+            if encoder['engine'] == 'cpu':
                 raise
             dest.unlink(missing_ok=True)
             runner.log('Échec du rendu GPU : nouvelle tentative de ce clip sur le CPU, avec la qualité habituelle.')

@@ -10,7 +10,7 @@ from core import ROOT, Runner, Cancelled, binary, probe
 from montage import assets, render
 from pipeline import process, load_project
 from smart_cuts import silence_candidates, adjust_boundaries, speech_window
-from video_encoder import amd, amd_av1
+from video_encoder import amd, amd_av1, nvidia_av1, intel_av1
 
 
 class MontageTests(unittest.TestCase):
@@ -211,6 +211,30 @@ class MontageTests(unittest.TestCase):
         self.assertNotIn('-preanalysis',attempts[1])
         self.assertEqual(probe(dest)['video'],'h264')
         self.assertEqual(len(probe(dest)['audio_tracks']),2)
+
+
+    def test_other_vendors_render_failure_retries_cpu_with_original_audio(self):
+        for profile in (nvidia_av1,intel_av1):
+            encoder=profile()
+            with self.subTest(engine=encoder['engine']):
+                dest=ROOT/'tests/output'/f"{encoder['engine']}-retry.mp4"
+                real_run=self.r.run;attempts=[]
+                def run(args):
+                    if '-filter_complex' in args:
+                        attempts.append(list(args))
+                        if encoder['codec'].startswith('av1_'):
+                            dest.write_bytes(b'incomplete GPU file')
+                            raise RuntimeError('GPU driver failure')
+                    return real_run(args)
+                with patch.object(self.r,'run',side_effect=run):
+                    render(self.source,120,2,dest,probe(self.source),assets(self.fixture,self.r),self.r,encoder=encoder)
+                self.assertEqual(encoder['engine'],'cpu')
+                self.assertEqual(len(attempts),2)
+                self.assertNotIn('-global_quality',attempts[1])
+                self.assertNotIn('-cq',attempts[1])
+                self.assertNotIn('nv12',attempts[1])
+                self.assertEqual(probe(dest)['video'],'h264')
+                self.assertEqual(len(probe(dest)['audio_tracks']),2)
 
 
 if __name__=='__main__':

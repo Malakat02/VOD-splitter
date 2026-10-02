@@ -14,6 +14,17 @@ from desktop import DesktopSession, DesktopApi, CloseController
 
 
 class DesktopTests(unittest.TestCase):
+    def test_smoke_session_uses_separate_port_without_changing_saved_preferences(self):
+        with tempfile.TemporaryDirectory() as tmp,patch('desktop.ROOT',Path(tmp)):
+            existing=DesktopSession();existing.start()
+            config=Path(tmp)/'cache/desktop-port.json';saved=config.read_bytes()
+            isolated=DesktopSession(reuse_port=False);isolated.start()
+            try:
+                self.assertNotEqual(existing.server.server_port,isolated.server.server_port)
+                self.assertEqual(config.read_bytes(),saved)
+            finally:
+                isolated.stop();existing.stop();app.CANCEL.clear()
+
     def test_internal_server_requires_token_and_stops_with_session(self):
         with tempfile.TemporaryDirectory() as tmp,patch('desktop.ROOT',Path(tmp)):
             session = DesktopSession()
@@ -26,7 +37,7 @@ class DesktopTests(unittest.TestCase):
                 self.assertEqual(denied.exception.code,404)
                 request = urllib.request.Request(base+'api/state',headers={'X-Vod-Token':app.TOKEN})
                 with opener.open(request,timeout=2) as response:
-                    self.assertEqual(json.load(response)['version'],11)
+                    self.assertEqual(json.load(response)['version'],12)
                 with self.assertRaises(urllib.error.HTTPError) as denied_host:
                     opener.open(urllib.request.Request(base+'api/state',headers={'Host':'foreign.example','X-Vod-Token':app.TOKEN}),timeout=2)
                 self.assertEqual(denied_host.exception.code,403)

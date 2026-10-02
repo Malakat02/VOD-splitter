@@ -62,6 +62,38 @@ class VideoEncoderTests(unittest.TestCase):
         self.assertEqual(chosen['options'],cpu()['options'])
         self.assertEqual(choose('amd_av1',self.info,True,self.runner)['options'],cpu(True)['options'])
 
+    def test_auto_av1_uses_first_working_vendor_and_stops_detection(self):
+        for failures,engine,codec in [(0,'amd','av1_amf'),(1,'nvidia','av1_nvenc'),(2,'intel','av1_qsv')]:
+            with self.subTest(engine=engine):
+                runner=Mock();runner.run.side_effect=[RuntimeError('not supported')]*failures+[None]
+                with patch('video_encoder.probe',return_value={'video':'av1','width':1920,'height':1080}):
+                    chosen=choose('gpu_av1',self.info,False,runner)
+                self.assertEqual(chosen['engine'],engine)
+                self.assertEqual(chosen['codec'],codec)
+                self.assertEqual(runner.run.call_count,failures+1)
+                self.assertEqual(chosen['hardware_decode'],engine=='amd')
+
+    def test_auto_av1_unsupported_or_padded_devices_then_cpu(self):
+        self.runner.run.side_effect=RuntimeError('encoder or driver missing')
+        chosen=choose('gpu_av1',self.info,False,self.runner)
+        self.assertEqual(chosen['options'],cpu()['options'])
+        self.assertEqual(self.runner.run.call_count,3)
+        self.assertEqual(chosen['fallback'],'GPU AV1 indisponible')
+        self.runner.reset_mock(side_effect=True)
+        with patch('video_encoder.probe',side_effect=[
+            {'video':'av1','width':1920,'height':1082},
+            {'video':'av1','width':1920,'height':1080}]):
+            self.assertEqual(choose('gpu_av1',self.info,False,self.runner)['engine'],'nvidia')
+
+    def test_auto_av1_cancellation_and_quality_guards_do_not_try_next_vendor(self):
+        self.runner.run.side_effect=Cancelled('cancelled')
+        with self.assertRaises(Cancelled):choose('gpu_av1',self.info,False,self.runner)
+        self.assertEqual(self.runner.run.call_count,1)
+        self.runner.reset_mock()
+        self.assertEqual(choose('gpu_av1',self.info,True,self.runner)['options'],cpu(True)['options'])
+        self.assertEqual(choose('gpu_av1',dict(self.info,pix_fmt='yuv420p10le'),False,self.runner)['engine'],'cpu')
+        self.runner.run.assert_not_called()
+
 
 if __name__=='__main__':
     unittest.main()
