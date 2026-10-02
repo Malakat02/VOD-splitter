@@ -125,7 +125,8 @@ def main():
             with opener.open(base,timeout=5) as response:
                 html = response.read().decode('utf-8')
             result = {'loaded':True,'url':window.get_current_url().split('#')[0], 'version':state['version'],
-                      'controls':all(f'id="{name}"' in html for name in ('source','provider','launch'))}
+                      'controls':all(f'id="{name}"' in html for name in ('source','provider','launch','montage','smart-cuts','render-quality')),
+                      'montage_defaults':window.evaluate_js("({montage:document.getElementById('montage').checked,smart_cuts:document.getElementById('smart-cuts').checked,quality:document.getElementById('render-quality').value})")}
             report = ROOT/'tests'/'output'/'desktop-smoke.json'
             report.parent.mkdir(parents=True,exist_ok=True)
             report.write_text(json.dumps(result),encoding='utf-8')

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import base64
 import csv
+from fractions import Fraction
 import json
 import math
 import os
@@ -80,7 +81,22 @@ def probe(path, runner=None):
     duration = float(data["format"].get("duration", video.get("duration", 0)))
     if not math.isfinite(duration) or duration <= 0:
         raise ValueError("Impossible de déterminer la durée de cette vidéo.")
+    rate = video.get('avg_frame_rate') or video.get('r_frame_rate', '30/1')
+    try:
+        if not 0 < float(Fraction(rate)) <= 240:
+            rate = video.get('r_frame_rate', '30/1')
+        if not 0 < float(Fraction(rate)) <= 240:
+            rate = '30/1'
+    except (ValueError, ZeroDivisionError):
+        rate = '30/1'
     return {"duration": duration, "video": video["codec_name"],
+            "fps": rate, "pix_fmt": video.get('pix_fmt','yuv420p'),
+            "alpha": video.get('tags',{}).get('alpha_mode') == '1',
+            "color_transfer": video.get('color_transfer','unknown'),
+            "audio_tracks": [dict(index=s['index'], channels=s['channels'],
+                sample_rate=int(s.get('sample_rate',48000)), channel_layout=s.get('channel_layout'),
+                language=s.get('tags',{}).get('language','und'), title=s.get('tags',{}).get('title',''))
+                for s in data['streams'] if s['codec_type']=='audio'],
             "video_index": video["index"],
             "audio": any(s["codec_type"] == "audio" for s in data["streams"]),
             "audio_codecs": [s["codec_name"] for s in data["streams"] if s["codec_type"] == "audio"],
@@ -186,7 +202,7 @@ def write_json(path, data):
     temp.replace(path)
 
 
-def frames_for(clip, duration, directory, runner, reuse=False):
+def frames_for(clip, duration, directory, runner, reuse=False, offset=0):
     from PIL import Image, ImageDraw, ImageStat, ImageFilter, ImageFont
     frames = []
     for i in range(8):
@@ -194,7 +210,7 @@ def frames_for(clip, duration, directory, runner, reuse=False):
         t = duration * (i + 1) / 9
         dest = directory / f"image_{i+1:02}.jpg"
         if not (reuse and dest.exists()):
-            runner.run([binary("ffmpeg"), "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", clip,
+            runner.run([binary("ffmpeg"), "-v", "error", "-y", "-ss", f"{offset+t:.3f}", "-i", clip,
                     "-frames:v", "1", "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
                     "-q:v", "2", dest])
         with Image.open(dest) as im:

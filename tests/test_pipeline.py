@@ -33,10 +33,10 @@ class PipelineTests(unittest.TestCase):
                         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000", "-t", "135",
                         "-c:v", "libx264", "-preset", "ultrafast", "-g", "20", "-keyint_min", "20",
                         "-sc_threshold", "0", "-bf", "0", "-c:a", "aac", source])
-        result = process({"source": str(source), "start": "00:05", "minutes": 1,
+        result = process({"source": str(source), "start": "00:05", "minutes": 1, "montage": False, "smart_cuts": False,
                           "output": str(ROOT / "tests" / "output"), "ai": False}, runner, lambda _: None)
         self.assertEqual(len(result["clips"]), 2)
-        self.assertEqual((Path(result['clips'][0]['file']).parent/'tags.txt').read_text(encoding='utf-8'), result['publication_tags']['tags_text'])
+        self.assertEqual((Path(result['clips'][0]['directory']).parent/'tags.txt').read_text(encoding='utf-8'), result['publication_tags']['tags_text'])
         self.assertLessEqual(result['publication_tags']['tags_characters'], 500)
         self.assertAlmostEqual(result["actual_start"], 6, delta=.1)
         durations = [c["duration"] for c in result["clips"]]
@@ -66,7 +66,7 @@ class PipelineTests(unittest.TestCase):
             runner.run([binary("ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25",
                         "-f", "lavfi", "-i", "sine=frequency=440", "-t", "72", "-map", "0:v", "-map", "1:a", "-map", "1:a",
                         "-c:v", "libx264", "-g", "50", "-sc_threshold", "0", "-bf", "3", "-c:a", "aac", source])
-        result = process({"source": str(source), "start": "5", "minutes": 1,
+        result = process({"source": str(source), "start": "5", "minutes": 1, "montage": False, "smart_cuts": False,
                           "output": str(ROOT / "tests" / "output")}, runner, lambda _: None)
         self.assertEqual(len(result["clips"]), 1)
         self.assertTrue(64 <= result['clips'][0]['duration'] <= 68)
@@ -103,10 +103,10 @@ class PipelineTests(unittest.TestCase):
         if not source.exists():
             runner.run([binary('ffmpeg'),'-v','error','-f','lavfi','-i','testsrc2=size=64x64:rate=10',
                         '-t','120','-c:v','libx264','-preset','ultrafast','-g','20','-sc_threshold','0','-bf','0',source])
-        result=process({'source':str(source),'start':'0','minutes':1,'output':str(ROOT/'tests'/'output')},runner,lambda _:None)
+        result=process({'source':str(source),'start':'0','minutes':1,'montage':False,'smart_cuts':False,'output':str(ROOT/'tests'/'output')},runner,lambda _:None)
         self.assertEqual(len(result['clips']),2)
         self.assertTrue(all(59.9<=c['duration']<=60.1 for c in result['clips']))
-        short=process({'source':str(source),'start':'90','minutes':1,'output':str(ROOT/'tests'/'output')},runner,lambda _:None)
+        short=process({'source':str(source),'start':'90','minutes':1,'montage':False,'smart_cuts':False,'output':str(ROOT/'tests'/'output')},runner,lambda _:None)
         self.assertEqual(len(short['clips']),1)
         self.assertAlmostEqual(short['clips'][0]['duration'],30,delta=.1)
 

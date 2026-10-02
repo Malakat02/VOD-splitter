@@ -100,6 +100,8 @@ def analyse(clip, info, directory, frames, model, runner, context=None, reuse_le
     ident = identity(clip)
     speech_key = digest({"clip": ident, "model": "base", "beam": 3, "vad": True,
                          "game": game, "terms": terms, "version": 2})
+    if info.get('content_offset'):
+        speech_key = digest({'base': speech_key, 'offset': info['content_offset'], 'duration': info['duration']})
     transcript = cached(directory / "speech.cache.json", speech_key)
     if transcript is None and reuse_legacy and (directory / "transcription.json").exists():
         legacy = json.loads((directory / "transcription.json").read_text(encoding="utf-8"))
@@ -112,7 +114,8 @@ def analyse(clip, info, directory, frames, model, runner, context=None, reuse_le
         started = time.perf_counter()
         if info["audio"]:
             audio = directory / "analyse.wav"
-            runner.run([binary("ffmpeg"), "-v", "error", "-y", "-i", clip, "-map", "0:a:0", "-vn",
+            runner.run([binary("ffmpeg"), "-v", "error", "-y", "-ss", str(info.get('content_offset',0)),
+                        "-i", clip, "-t", str(info['duration']), "-map", "0:a:0", "-vn",
                         "-ac", "1", "-ar", "16000", audio])
             try:
                 speech_hint = (f"Jeu vidéo : {game}. Vocabulaire : {terms[:900]}" if game else None)

@@ -14,18 +14,19 @@ Double-clique sur **VOD Atelier.exe** ou **Lancer VOD Atelier.cmd**. L’interfa
 
 1. Choisis ta vidéo avec **Parcourir**, ou colle son chemin. La version bureau ouvre le sélecteur de fichiers Windows. Le mode navigateur de développement conserve son sélecteur intégré.
 2. Indique le début du contenu : `05:00` retire cinq minutes. La durée des épisodes commence après cette intro.
-3. Garde **20 minutes**, ou choisis une autre durée.
-4. Saisis le **nom exact du jeu** et le **numéro du premier clip**. Le jeu saisi fixe le périmètre de recherche et d’analyse : il ne doit pas être remplacé par un jeu supposé à partir de Whisper.
-5. Garde **Rechercher le contexte du jeu sur Internet** pour utiliser des sources sur le jeu. Les liens consultés sont affichés. Seul le nom du jeu sert à la recherche ; aucune vidéo, image ou transcription n’est envoyée au moteur de recherche. En mode OpenAI, les résumés de cinq minutes et les huit images sont envoyés à OpenAI pour l’analyse ; la transcription détaillée reste locale.
-6. Choisis **IA locale** ou **OpenAI**, puis coche **Analyser avec l’IA** pour obtenir les titres et la miniature choisie par le modèle.
-7. Clique sur **Créer mes épisodes**.
+3. Garde **20 minutes**, ou choisis une autre durée. Les pauses de voix permettent des ajustements de ±30 secondes.
+4. Ajoute tes fichiers au dossier **Montage** et garde **Ajouter mon montage** : écran de départ de deux secondes, stinger transparent et fondu au noir final de deux secondes. Choisis le rendu sans perte de compression (MKV volumineux) ou haute qualité (MP4). Décoche le montage pour conserver la copie rapide sans réencodage.
+5. Saisis le **nom exact du jeu** et le **numéro du premier clip**. Le jeu saisi fixe le périmètre de recherche et d’analyse : il ne doit pas être remplacé par un jeu supposé à partir de Whisper.
+6. Garde **Rechercher le contexte du jeu sur Internet** pour utiliser des sources sur le jeu. Les liens consultés sont affichés. Seul le nom du jeu sert à la recherche ; aucune vidéo, image ou transcription n’est envoyée au moteur de recherche. En mode OpenAI, les résumés de cinq minutes et les huit images sont envoyés à OpenAI pour l’analyse ; la transcription détaillée reste locale.
+7. Choisis **IA locale** ou **OpenAI**, puis coche **Analyser avec l’IA** pour obtenir les titres et la miniature choisie par le modèle.
+8. Clique sur **Créer mes épisodes**.
 
 Les résultats sont dans un nouveau sous-dossier de **Clips VOD**, à côté de la vidéo, sauf si tu choisis une autre destination. Le bouton **Choisir** ouvre le sélecteur de dossiers Windows. Les fichiers existants ne sont pas écrasés. Une heure de contenu utile donne environ trois épisodes de 20 minutes. Une VOD d’une heure dont on retire cinq minutes donne environ 20 + 35 minutes : le dernier morceau court est intégré au précédent.
 
 ## Contenu des résultats
 
-- `clip_001.mp4`, etc. : pistes vidéo et audio copiées sans réencodage. Les vidéos apparaissent dès la fin du découpage, avant l’analyse. Avec un nom de jeu, elles sont ensuite renommées d’après le premier titre validé. Certains codecs utilisent MKV pour conserver leur format.
-- Dossier `clip_001` : miniature JPEG 1280 × 720, huit images candidates et planche de contact.
+- Dossiers **Clip 001**, **Clip 002**, etc. : chacun contient directement sa vidéo, sa miniature JPEG 1280 × 720, ses titres, les huit images candidates et la planche de contact. Avec un nom de jeu, la vidéo est renommée d’après le premier titre validé. Les anciens projets conservent leur organisation et restent lisibles.
+- Avec montage : H.264 sans perte de compression + FLAC en MKV, ou H.264 CRF 16 + AAC 320 kbit/s en MP4. Sans montage : pistes vidéo et audio copiées sans réencodage, en MP4 ou MKV selon les codecs. Les vidéos terminées apparaissent avant l’analyse.
 - Avec IA : résumés par période de cinq minutes (`resume_5min.txt` et `.json`), résumé global, jusqu’à trois propositions de titres validées, texte de miniature et image sélectionnée. `transcription.txt` contient désormais ces notes compactes ; `transcription.json` reste un cache technique local pour éviter de réécouter la vidéo.
 - `projet.json` : paramètres, début effectivement retenu, durées réelles, résultats et éventuels avertissements.
 
@@ -45,7 +46,7 @@ Clique sur **Ouvrir un projet existant**, sélectionne `projet.json`, saisis le 
 
 Les transcriptions et les huit images sont réutilisées par défaut. Les analyses visuelles sont aussi réutilisées si le clip, ses images et le jeu sont identiques. Décoche **Réutiliser les transcriptions existantes** pour refaire Whisper avec le vocabulaire du jeu lorsqu’une ancienne transcription est trop mauvaise.
 
-Le découpage n’effectue plus la seconde réécriture MP4 « faststart » : aucune qualité vidéo/audio n’est perdue, mais un fichier envoyé tel quel sur un simple serveur web peut nécessiter un téléchargement complet avant lecture. YouTube traite ses propres fichiers après import. Le modèle reste chargé entre les clips pendant 30 minutes. Le rédacteur reçoit désormais des résumés par périodes de cinq minutes préparés localement, avec les actions, enjeux et incertitudes utiles aux titres. Une condensation peut omettre un détail bref : relis les notes affichées pour évaluer les titres. Même modèle Whisper, même effort de décodage, même modèle visuel et mêmes huit images en 1280 × 720.
+Le mode sans montage n’effectue plus la seconde réécriture MP4 « faststart » : aucune qualité vidéo/audio n’est perdue, mais un fichier envoyé tel quel sur un simple serveur web peut nécessiter un téléchargement complet avant lecture. YouTube traite ses propres fichiers après import. Le modèle reste chargé entre les clips pendant 30 minutes. Le rédacteur reçoit désormais des résumés par périodes de cinq minutes préparés localement, avec les actions, enjeux et incertitudes utiles aux titres. Une condensation peut omettre un détail bref : relis les notes affichées pour évaluer les titres. Même modèle Whisper, même effort de décodage, même modèle visuel et mêmes huit images en 1280 × 720.
 
 ## Mode IA locale
 
@@ -58,7 +59,7 @@ En mode local, après la préparation, les paroles et images sont traitées sur 
 ## Limites utiles
 
 - Sans réencodage, FFmpeg coupe aux images clés. Les durées peuvent varier de quelques secondes, ou davantage si la vidéo contient très peu d’images clés. Le début est avancé à la première image clé disponible pour éviter de conserver l’intro ; cette avance peut retirer un peu du début du contenu.
-- Toutes les pistes audio sont copiées ; la première sert à la transcription. Les sous-titres, pièces jointes et pistes de données ne sont pas exportés.
+- Toutes les pistes audio sont conservées (réencodées avec le montage, copiées sans montage) ; la première sert à la transcription et à la détection des pauses. Les sous-titres, pièces jointes et pistes de données ne sont pas exportés.
 - Les images sont échantillonnées à huit instants répartis dans chaque clip. L’IA ne regarde pas chaque image de toute la vidéo ; elle peut rater un événement bref. Relis les titres avant publication.
 - Sans IA, les titres restent génériques et la miniature utilise un classement simple de luminosité/netteté.
 - L’arrêt interrompt FFmpeg rapidement ; une inférence Whisper ou Ollama en cours peut finir avant que l’arrêt soit pris en compte. Les clips terminés sont conservés ; le dernier fichier en cours de découpage peut être incomplet.
@@ -82,7 +83,7 @@ Sources techniques : [FFmpeg segment muxer](https://ffmpeg.org/ffmpeg-formats.ht
 
 ## Mode OpenAI avec une clé API
 
-Dans **Quelle IA utiliser ?**, choisis **OpenAI · avec ma clé API**. Le modèle OpenAI choisi analyse les huit images, rédige les titres et contrôle leur fidélité au jeu et aux faits. La recherche du jeu conserve son périmètre strict. Whisper et Qwen restent locaux : seuls les résumés de cinq minutes, les images et le contexte du jeu partent vers OpenAI, pas la transcription détaillée, le fichier vidéo ni l’audio. Le découpage reste sans réencodage. Les miniatures restent des compositions locales à partir des images du clip.
+Dans **Quelle IA utiliser ?**, choisis **OpenAI · avec ma clé API**. Le modèle OpenAI choisi analyse les huit images, rédige les titres et contrôle leur fidélité au jeu et aux faits. La recherche du jeu conserve son périmètre strict. Whisper et Qwen restent locaux : seuls les résumés de cinq minutes, les images et le contexte du jeu partent vers OpenAI, pas la transcription détaillée, le fichier vidéo ni l’audio. Le découpage sans montage reste sans réencodage ; le montage nécessite un rendu vidéo local. Les miniatures restent des compositions locales à partir des images du clip.
 
 1. Ouvre [API keys](https://platform.openai.com/api-keys), connecte-toi et sélectionne ton projet.
 2. Clique sur **Create new secret key**, nomme la clé **VOD Atelier**, puis copie la clé secrète complète dans l’application. Ce n’est ni ton mot de passe ChatGPT, ni une clé administrateur. Si tu limites ses permissions, autorise Responses en écriture et Models en lecture.
@@ -170,7 +171,7 @@ Cette méthode réduit le volume de texte envoyé pour les titres, donc la part 
 
 Si le dernier morceau fait moins que la durée choisie (20 minutes par défaut), il est automatiquement intégré à l’avant-dernier épisode. Exemple : sept clips de 20 minutes, puis 20 + 10 minutes, deviennent sept clips de 20 minutes et un dernier de 30 minutes. Une VOD plus courte qu’un épisode reste un seul clip.
 
-Le regroupement est prévu avant le découpage : FFmpeg omet la dernière coupe et copie les pistes vidéo/audio en une seule passe, sans réencodage ni recopie des deux derniers fichiers. Les très petits écarts de durée dus aux horodatages et aux images clés n’affectent pas la logique des périodes prévues. L’estimation affichée tient compte de cette règle.
+Le regroupement est prévu avant le découpage : l’application omet la dernière coupe. Sans montage, FFmpeg copie les pistes en une passe ; avec montage, le dernier épisode plus long est rendu directement, sans créer deux vidéos intermédiaires à recoller. Les très petits écarts de durée dus aux horodatages et aux images clés n’affectent pas la logique des périodes prévues. L’estimation affichée tient compte de cette règle.
 
 L’analyse porte ensuite sur le clip entier obtenu. Un dernier épisode de 30 minutes reçoit six résumés de cinq minutes, un titre et une miniature pour l’ensemble. La règle s’applique aux nouvelles créations ; rouvrir un ancien projet pour refaire ses titres ne modifie pas ses fichiers vidéo.
 
@@ -181,3 +182,14 @@ L’IA propose trois titres aux angles différents : association étrange ou con
 Le contrôle indépendant accepte ces formes courtes et vérifie toujours leur sous-entendu contre les résumés du clip. Il écarte les inventions, les références à d’autres jeux, les rubriques descriptives et les reformulations trop proches. Ces consignes sont communes à l’IA locale et à OpenAI. Pour appliquer le style à un projet existant, utilise **Refaire les titres et miniatures** avec la réutilisation des transcriptions.
 
 Pour le mode navigateur de développement uniquement, lance `app.py` ou `launch.py --browser`. Le démarrage habituel utilise la fenêtre bureau.
+
+
+## Montage et coupes pendant les pauses de voix
+
+Place **Starting Screen.mp4** et **Stinger.webm** dans le dossier `Montage` ([instructions](Montage/Lisez-moi.md)). Le starting screen est joué pendant deux secondes avant le stinger. La transparence WebM VP9 est décodée avec libvpx ; le changement de fond se fait au milieu d’un passage opaque quand le fichier en possède un. L’écran de jeu reste figé pendant la révélation, puis le contenu et ses paroles commencent en entier. L’intro ajoute environ cinq secondes avec le stinger actuel. Elle est exclue des images candidates et des résumés de cinq minutes. Le fondu au noir affecte les deux dernières secondes de l’image ; les paroles restent audibles.
+
+Le montage nécessite un réencodage complet, donc davantage de temps et d’espace disque. Le rendu **sans perte de compression** est une option pour ne pas ajouter de perte par compression : H.264 CRF 0 / FLAC, MKV. Le rendu **haute qualité**, sélectionné par défaut, utilise H.264 CRF 16 / AAC 320 kbit/s, MP4 : une compression avec perte légère, qui donne des fichiers plus petits. Les compositions et conversions de l’intro restent des traitements d’image ; « sans perte de compression » ne signifie pas que chaque pixel modifié par le montage reste identique. Le test vérifie qu’une image de jeu sans effet est identique au décodage de la source SDR utilisée. Le montage HDR n’est pas pris en charge ; conserve le mode copie pour une source HDR.
+
+**Couper pendant une pause de voix** analyse localement de petites fenêtres autour des limites prévues avec Silero VAD, fourni par faster-whisper. La musique ne constitue pas à elle seule une voix. L’application cherche une pause d’au moins 500 ms, avec une marge autour des paroles détectées, à ±30 secondes. Elle conserve la continuité des segments et n’efface aucun intervalle. Chaque épisode ordinaire reste dans cette tolérance ; le dernier regroupé peut être plus long. La détection peut confondre des voix de jeu ou manquer une voix faible : si aucun point utilisable n’est trouvé, la limite prévue est conservée et le journal l’indique. En mode copie, une pause doit aussi contenir une image clé ; les limites réelles restent soumises aux images clés de la source.
+
+La règle du dernier morceau court reste fondée sur les périodes prévues, avant les légers ajustements de silence. Une petite réduction du dernier épisode à cause d’une coupe décalée n’ajoute pas un nouveau regroupement. Rouvrir un projet pour refaire ses titres ne remonte pas les vidéos existantes. Les tags communs restent dans le `tags.txt` du projet.

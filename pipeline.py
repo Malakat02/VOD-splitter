@@ -13,6 +13,8 @@ from core import (Cancelled, binary, frames_for, next_keyframe, probe, parse_tim
                   speech_model, stamp, thumbnail, write_json, ai_status)
 from analysis_local import analyse, identity, digest, cached, save_cache, title_with_suffix
 from research import clean_game, game_context
+from smart_cuts import adjust_boundaries
+from montage import assets, render
 
 
 class LazySpeech:
@@ -81,7 +83,7 @@ def load_project(path):
     for item in data["clips"]:
         file = Path(item["file"]).resolve()
         folder = Path(item["directory"]).resolve()
-        if file.parent != root or folder.parent != root or not file.is_file() or file.suffix.lower() not in {".mp4", ".mkv"}:
+        if file.parent not in {root, folder} or folder.parent != root or not file.is_file() or file.suffix.lower() not in {".mp4", ".mkv"}:
             raise ValueError("Un clip du projet est manquant ou se trouve hors du dossier du projet.")
         found.add(file)
     # Older interrupted jobs may already contain all copied videos but no per-clip records yet.
@@ -144,12 +146,18 @@ def enrich(directory, manifest, config, runner, update, reuse=False):
         save_project(directory, manifest, update)
         info = probe(clip, runner)
         item["duration"] = info["duration"]
+        if item.get('content_offset'):
+            info['content_offset'] = item['content_offset']
+            info['duration'] = min(item['content_duration'], info['duration']-item['content_offset'])
         try:
             frame_key = digest({"clip": identity(clip), "count": 8, "resolution": [1280,720], "version": 1})
+            if info.get('content_offset'):
+                frame_key = digest({'base': frame_key, 'offset': info['content_offset'], 'duration': info['duration']})
             frame_cache = folder / "frames.cache.json"
             reuse_frames = cached(frame_cache, frame_key) is not None or reuse
             frame_started = time.perf_counter()
-            frames = frames_for(clip, info["duration"], folder, runner, reuse=reuse_frames)
+            frames = frames_for(clip, info["duration"], folder, runner, reuse=reuse_frames,
+                                offset=info.get('content_offset',0))
             frame_seconds = round(time.perf_counter()-frame_started, 2)
             save_cache(frame_cache, frame_key, True)
             chosen = max(range(8), key=lambda n: frames[n]["score"])
@@ -165,7 +173,7 @@ def enrich(directory, manifest, config, runner, update, reuse=False):
             item["thumbnail"] = str(folder/"miniature.jpg")
             (folder/"titres.txt").write_text("\n".join(item["titles"])+"\n\n"+item.get("summary", "Analyse IA désactivée."), encoding="utf-8")
             if game:
-                target = directory/safe_video_name(item["titles"][0], directory, clip.suffix, number)
+                target = clip.parent/safe_video_name(item["titles"][0], clip.parent, clip.suffix, number)
                 if target != clip:
                     if target.exists():
                         # Never overwrite a clip, including after a renumbering collision.
@@ -218,25 +226,65 @@ def process(config, runner, update):
         raise ValueError("Le début choisi dépasse la fin de la vidéo.")
     if config.get("ai") and not ai_provider.ready(ai_status()):
         raise ValueError("Prépare l’IA locale : Whisper et Qwen sont nécessaires pour les résumés de cinq minutes, même avec OpenAI pour les titres. Ou décoche l’analyse.")
+    use_montage = bool(config.get('montage', True))
+    lossless = config.get('render_quality','high') == 'lossless'
+    media = assets(config.get('montage_directory'), runner) if use_montage else None
+    if use_montage and info.get('color_transfer') in {'smpte2084','arib-std-b67'}:
+        raise ValueError('Le montage SDR ne prend pas encore en charge les VOD HDR. Décoche le montage pour conserver la vidéo HDR.')
     output = Path(config.get("output") or source.parent/"Clips VOD").resolve()
     output.mkdir(parents=True, exist_ok=True)
     directory = output/(source.stem[:65]+"_"+time.strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:4])
     directory.mkdir()
-    actual_start = next_keyframe(source, start, info, runner)
+    actual_start = start if use_montage else next_keyframe(source, start, info, runner)
     if actual_start >= info["duration"]-.1:
         raise ValueError("Aucune séquence utilisable après ce début.")
-    runner.log(f"Début retenu : {stamp(actual_start)} (image clé, écart {actual_start-start:.2f} s).")
+    runner.log(f"Début retenu : {stamp(actual_start)} (écart {actual_start-start:.2f} s).")
     remaining = info["duration"]-actual_start
     boundaries, planned_durations = clip_plan(remaining, minutes*60)
     if len(planned_durations) < max(1, math.ceil((remaining-.1)/(minutes*60))):
         runner.log(f"Le dernier morceau court est intégré au précédent : dernier épisode prévu de {stamp(planned_durations[-1])}.")
+    cut_decisions = []
+    if config.get('smart_cuts',True):
+        update({'stage':'Recherche des pauses de voix', 'progress':2})
+        boundaries, cut_decisions = adjust_boundaries(source, actual_start, remaining, boundaries, info, runner, exact=use_montage)
+        points = [0]+boundaries+[remaining]
+        planned_durations = [b-a for a,b in zip(points,points[1:])]
     mp4_ok = info["video"] in {"h264", "hevc", "av1", "mpeg4"} and all(
         c in {"aac", "mp3", "ac3", "eac3", "alac"} for c in info["audio_codecs"])
-    ext = ".mp4" if mp4_ok else ".mkv"
+    ext = ('.mkv' if lossless else '.mp4') if use_montage else (".mp4" if mp4_ok else ".mkv")
     manifest = {"source": str(source), "requested_start": start, "actual_start": actual_start,
                 "target_seconds": minutes*60, "merge_short_tail": True, "planned_seconds": planned_durations,
-                "game": game, "first_episode": first, "clips": [], "status": "cutting"}
+                "game": game, "first_episode": first, "clips": [], "status": "cutting",
+                'montage':use_montage, 'render_quality':config.get('render_quality','high'),
+                'cut_decisions':cut_decisions, 'smart_cuts':bool(config.get('smart_cuts',True))}
     save_project(directory, manifest, update)
+    if use_montage:
+        runner.log('Montage avec réencodage '+('sans perte de compression (H.264 / FLAC).' if lossless else 'haute qualité (H.264 CRF 16 / AAC 320 kbit/s).'))
+        started = time.perf_counter()
+        points = [0]+boundaries+[remaining]
+        try:
+            for idx, (a,b) in enumerate(zip(points,points[1:])):
+                folder = directory/f'Clip {idx+1:03d}'
+                folder.mkdir()
+                clip = folder/f'clip_{idx+1:03d}{ext}'
+                update({'stage':f'Montage {idx+1} / {len(planned_durations)}',
+                        'progress':5+7*idx/len(planned_durations)})
+                runner.log(f'Montage du clip {idx+1}/{len(planned_durations)}…')
+                offset = render(source, actual_start+a, b-a, clip, info, media, runner, lossless)
+                ci = probe(clip,runner)
+                manifest['clips'].append({'number':first+idx,'file':str(clip),'directory':str(folder),
+                    'duration':ci['duration'], 'content_offset':offset, 'content_duration':b-a,
+                    'source_start':actual_start+a, 'source_end':actual_start+b,
+                    'titles':[title_with_suffix(f'Épisode {first+idx}',game,first+idx)],'ai':False,'status':'pending'})
+                save_project(directory,manifest,update)
+        except BaseException:
+            manifest['status']='interrupted'
+            save_project(directory,manifest,update)
+            raise
+        manifest['cut_seconds']=round(time.perf_counter()-started,2)
+        manifest['status']='cut_complete'
+        save_project(directory,manifest,update)
+        return enrich(directory,manifest,config,runner,update)
     runner.log("Découpage sans réencodage — une seule passe d’écriture des pistes vidéo et audio…")
     update({"stage": "Découpage des vidéos", "progress": 5})
     args = [binary("ffmpeg"), "-v", "warning", "-nostdin", "-ss", f"{actual_start:.6f}", "-i", source,
@@ -259,10 +307,16 @@ def process(config, runner, update):
     if not clips:
         raise RuntimeError("FFmpeg n’a produit aucun clip.")
     for idx, clip in enumerate(clips):
+        folder = directory/f'Clip {idx+1:03d}'
+        folder.mkdir(exist_ok=True)
+        target = folder/clip.name
+        clip.rename(target)
+        clip = target
         ci = probe(clip, runner)
         manifest["clips"].append({"number": first+idx, "file": str(clip), "duration": ci["duration"],
-            "directory": str(directory/clip.stem), "titles": [title_with_suffix(f"Épisode {first+idx}", game, first+idx)],
+            "directory": str(folder), "titles": [title_with_suffix(f"Épisode {first+idx}", game, first+idx)],
             "ai": False, "status": "pending"})
+        save_project(directory,manifest,update)
     manifest["status"] = "cut_complete"
     save_project(directory, manifest, update)
     runner.log(f"Découpage terminé en {manifest['cut_seconds']:.1f} s : {len(clips)} vidéos déjà disponibles. L’analyse commence séparément.")

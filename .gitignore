@@ -28,3 +28,5 @@ selecteur-corrige.png
 VOD Atelier.exe
 Installation/atelier.ico
 .venv_incomplet_*/
+Montage/*
+!Montage/Lisez-moi.md
