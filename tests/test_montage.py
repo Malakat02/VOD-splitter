@@ -90,6 +90,8 @@ class MontageTests(unittest.TestCase):
         self.assertEqual(clips[0]['source_end'],clips[1]['source_start'])
         self.assertAlmostEqual(clips[-1]['source_end'],probe(self.source)['duration'],delta=.001)
         for clip in clips:
+            self.assertEqual(clip['render_method'],'hybrid')
+            self.assertGreater(clip['copied_seconds'],50)
             self.assertEqual(Path(clip['file']).parent,Path(clip['directory']))
             self.assertTrue(Path(clip['thumbnail']).is_file())
             self.assertIn('[Palworld #',Path(clip['file']).name)
@@ -140,6 +142,7 @@ class MontageTests(unittest.TestCase):
         with patch('pipeline.render',side_effect=interrupted):
             with self.assertRaises(Cancelled):
                 process({'source':str(self.source),'start':'0','minutes':1,'smart_cuts':False,
+                    'montage_mode':'full',
                     'output':str(ROOT/'tests'/'output'),'ai':False,'montage':True,
                     'montage_directory':str(self.fixture)},self.r,updates.append)
         project=next(u['project'] for u in reversed(updates) if 'project' in u)

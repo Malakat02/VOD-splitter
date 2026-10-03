@@ -16,6 +16,7 @@ from research import clean_game, game_context
 from smart_cuts import adjust_boundaries
 from montage import assets, render
 from video_encoder import choose as choose_encoder
+from smart_montage import render_smart
 
 
 class LazySpeech:
@@ -228,6 +229,9 @@ def process(config, runner, update):
     if config.get("ai") and not ai_provider.ready(ai_status()):
         raise ValueError("Prépare l’IA locale : Whisper et Qwen sont nécessaires pour les résumés de cinq minutes, même avec OpenAI pour les titres. Ou décoche l’analyse.")
     use_montage = bool(config.get('montage', True))
+    montage_mode = config.get('montage_mode','hybrid')
+    if montage_mode not in {'hybrid','full'}:
+        raise ValueError('Choisis le montage partiel ou le montage complet.')
     lossless = config.get('render_quality','high') == 'lossless'
     media = assets(config.get('montage_directory'), runner) if use_montage else None
     if use_montage and info.get('color_transfer') in {'smpte2084','arib-std-b67'}:
@@ -258,11 +262,13 @@ def process(config, runner, update):
                 "target_seconds": minutes*60, "merge_short_tail": True, "planned_seconds": planned_durations,
                 "game": game, "first_episode": first, "clips": [], "status": "cutting",
                 'montage':use_montage, 'render_quality':config.get('render_quality','high'),
+                'montage_mode':montage_mode,
                 'requested_encoder':config.get('video_encoder','cpu'),
                 'cut_decisions':cut_decisions, 'smart_cuts':bool(config.get('smart_cuts',True))}
     save_project(directory, manifest, update)
     if use_montage:
-        runner.log('Montage avec réencodage '+('sans perte de compression (H.264 / FLAC).' if lossless else 'haute qualité (H.264 CRF 16 / AAC 320 kbit/s).'))
+        runner.log('Montage partiel : copie de la vidéo centrale si les raccords sont compatibles.' if montage_mode=='hybrid' and not lossless
+                   else 'Montage complet avec réencodage '+('sans perte de compression (H.264 / FLAC).' if lossless else 'haute qualité.'))
         started = time.perf_counter()
         points = [0]+boundaries+[remaining]
         try:
@@ -273,12 +279,18 @@ def process(config, runner, update):
                 update({'stage':f'Montage {idx+1} / {len(planned_durations)}',
                         'progress':5+7*idx/len(planned_durations)})
                 runner.log(f'Montage du clip {idx+1}/{len(planned_durations)}…')
-                offset = render(source, actual_start+a, b-a, clip, info, media, runner, lossless, encoder=encoder)
+                clip_started = time.perf_counter()
+                if montage_mode=='hybrid':
+                    offset, rendering = render_smart(source,actual_start+a,b-a,clip,info,media,runner,lossless,encoder=encoder)
+                else:
+                    offset = render(source, actual_start+a, b-a, clip, info, media, runner, lossless, encoder=encoder)
+                    rendering = {'render_method':'full','video_encoder':encoder['engine'],'video_codec':encoder['codec']}
                 ci = probe(clip,runner)
                 manifest['clips'].append({'number':first+idx,'file':str(clip),'directory':str(folder),
                     'duration':ci['duration'], 'content_offset':offset, 'content_duration':b-a,
                     'source_start':actual_start+a, 'source_end':actual_start+b,
-                    'video_encoder':encoder['engine'], 'video_codec':encoder['codec'],
+                    'montage_seconds':round(time.perf_counter()-clip_started,2),
+                    **rendering,
                     'titles':[title_with_suffix(f'Épisode {first+idx}',game,first+idx)],'ai':False,'status':'pending'})
                 save_project(directory,manifest,update)
         except BaseException:

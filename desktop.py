@@ -128,9 +128,9 @@ def main():
             with opener.open(base,timeout=5) as response:
                 html = response.read().decode('utf-8')
             result = {'loaded':True,'url':window.get_current_url().split('#')[0], 'version':state['version'],
-                      'controls':all(f'id="{name}"' in html for name in ('source','provider','launch','montage','smart-cuts','render-quality','video-encoder')),
+                      'controls':all(f'id="{name}"' in html for name in ('source','provider','launch','montage','montage-mode','smart-cuts','render-quality','video-encoder')),
                       'av1_option':window.evaluate_js("!!document.querySelector('#video-encoder option[value=gpu_av1]')"),
-                      'montage_defaults':window.evaluate_js("({montage:document.getElementById('montage').checked,smart_cuts:document.getElementById('smart-cuts').checked,quality:document.getElementById('render-quality').value,encoder:document.getElementById('video-encoder').value})")}
+                      'montage_defaults':window.evaluate_js("({montage:document.getElementById('montage').checked,smart_cuts:document.getElementById('smart-cuts').checked,quality:document.getElementById('render-quality').value,method:document.getElementById('montage-mode').value,encoder:document.getElementById('video-encoder').value})")}
             report = ROOT/'tests'/'output'/'desktop-smoke.json'
             report.parent.mkdir(parents=True,exist_ok=True)
             report.write_text(json.dumps(result),encoding='utf-8')

@@ -40,7 +40,29 @@ def assets(directory=None, runner=None):
             'intro_seconds': 2+stinger_info['duration']}
 
 
-def render(source, start, duration, dest, info, media, runner, lossless=False, encoder=None):
+def audio_graph(info, media, duration, intro, source_input=0, screen_input=1):
+    tracks = info.get('audio_tracks', [])
+    original_audio = bool(tracks)
+    if not tracks and media['screen_info']['audio']:
+        tracks = media['screen_info']['audio_tracks'][:1]
+    graph=[]
+    for i, track in enumerate(tracks):
+        rate, layout = int(track.get('sample_rate',48000)), track.get('channel_layout') or f'{track["channels"]}c'
+        form = f'aresample={rate},aformat=sample_fmts=fltp:sample_rates={rate}:channel_layouts={layout}'
+        if media['screen_info']['audio']:
+            graph.append(f'[{screen_input}:a:0]atrim=duration={intro:.6f},asetpts=PTS-STARTPTS,{form},afade=t=out:st={max(0,intro-.25):.6f}:d=0.25[ia{i}]')
+        else:
+            graph.append(f'anullsrc=r={rate}:cl={layout},atrim=duration={intro:.6f}[ia{i}]')
+        if original_audio:
+            graph.append(f'[{source_input}:a:{i}]atrim=duration={duration:.6f},asetpts=PTS-STARTPTS,{form},apad,atrim=duration={duration:.6f}[ga{i}]')
+        else:
+            graph.append(f'anullsrc=r={rate}:cl={layout},atrim=duration={duration:.6f}[ga{i}]')
+        graph.append(f'[ia{i}][ga{i}]concat=n=2:v=0:a=1[a{i}]')
+    return tracks,graph
+
+
+def render(source, start, duration, dest, info, media, runner, lossless=False, encoder=None,
+           *, fade=True, video_only=False, frame_count=None):
     encoder = encoder if encoder is not None and not lossless else cpu(lossless)
     fps = float(Fraction(info.get('fps', '30/1')))
     fps_string = info.get('fps', '30/1')
@@ -68,23 +90,9 @@ def render(source, start, duration, dest, info, media, runner, lossless=False, e
         f'[2:{media["stinger_info"]["video_index"]}]setpts=PTS-STARTPTS,{scale},format=yuva420p,setpts=PTS+2/TB[stinger]',
         '[background][stinger]overlay=eof_action=pass:repeatlast=0:format=auto[intro]',
         '[intro][game]concat=n=2:v=1:a=0[joined]',
-        f'[joined]fade=t=out:st={max(intro,total-2):.6f}:d={min(2,duration):.6f}[video]']
-    tracks = info.get('audio_tracks', [])
-    original_audio = bool(tracks)
-    if not tracks and media['screen_info']['audio']:
-        tracks = media['screen_info']['audio_tracks'][:1]
-    for i, track in enumerate(tracks):
-        rate, layout = int(track.get('sample_rate',48000)), track.get('channel_layout') or f'{track["channels"]}c'
-        form = f'aresample={rate},aformat=sample_fmts=fltp:sample_rates={rate}:channel_layouts={layout}'
-        if media['screen_info']['audio']:
-            graph.append(f'[1:a:0]atrim=duration={intro:.6f},asetpts=PTS-STARTPTS,{form},afade=t=out:st={max(0,intro-.25):.6f}:d=0.25[ia{i}]')
-        else:
-            graph.append(f'anullsrc=r={rate}:cl={layout},atrim=duration={intro:.6f}[ia{i}]')
-        if original_audio:
-            graph.append(f'[0:a:{i}]atrim=duration={duration:.6f},asetpts=PTS-STARTPTS,{form},apad,atrim=duration={duration:.6f}[ga{i}]')
-        else:
-            graph.append(f'anullsrc=r={rate}:cl={layout},atrim=duration={duration:.6f}[ga{i}]')
-        graph.append(f'[ia{i}][ga{i}]concat=n=2:v=0:a=1[a{i}]')
+        (f'[joined]fade=t=out:st={max(intro,total-2):.6f}:d={min(2,duration):.6f}[video]' if fade else '[joined]null[video]')]
+    tracks, sounds = ([],[]) if video_only else audio_graph(info,media,duration,intro)
+    graph += sounds
     args += ['-filter_complex_threads', '2', '-filter_complex', ';'.join(graph), '-map', '[video]']
     for i, track in enumerate(tracks):
         args += ['-map', f'[a{i}]', f'-metadata:s:a:{i}', 'language='+track.get('language','und'),
@@ -99,6 +107,8 @@ def render(source, start, duration, dest, info, media, runner, lossless=False, e
         args += ['-c:a', 'flac' if lossless else 'aac']
         if not lossless:
             args += ['-b:a','320k']
+    if frame_count is not None:
+        args += ['-frames:v',str(frame_count)]
     args += ['-t', f'{total:.6f}', dest]
     try:
         try:
